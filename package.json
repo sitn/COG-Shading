@@ -1,0 +1,30 @@
+{
+  "name": "cog-shading",
+  "version": "1.0.0",
+  "description": "Visualization tool for COG rasters with their shading",
+  "main": "index.js",
+  "scripts": {
+    "start": "vite",
+    "build": "tsc && vite build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sitn/COG-Shading.git"
+  },
+  "author": "Corentin Junod (corentin.junod@ne.ch)",
+  "license": "AGPL-3.0-or-later",
+  "bugs": {
+    "url": "https://github.com/sitn/COG-Shading/issues"
+  },
+  "homepage": "https://github.com/sitn/COG-Shading#readme",
+  "dependencies": {
+    "ol": "^9.2.4",
+    "proj4": "^2.11.0",
+    "suncalc": "^1.9.0",
+    "vite": "^5.2.13"
+  },
+  "devDependencies": {
+    "@types/proj4": "^2.5.5",
+    "@types/suncalc": "^1.9.2"
+  }
+}
