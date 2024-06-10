@@ -1,9 +1,12 @@
 # COG-Shading
 Visualization tool for COG rasters with their shading
 
+## Requirements
+
+- Install [nodeJs](https://nodejs.org/en)
+
+1. Clone the repository
+2. Run `npm install`
+3. Start the development server with `npm start` 
+
 ## Configuration
-
-## Starting the application
-
-Simply put all the files in a folder served by a webserver.
-To start a webserver in any folder using node, navigate to the folder and run `npx serve` in a command line
