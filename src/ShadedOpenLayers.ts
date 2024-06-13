@@ -1,71 +1,96 @@
 import WebGLTileLayerCustom from "./WebGLTileLayerCustom.ts"
 import GeoTIFF from "./ol/source/GeoTIFF.js"
-import Map from "./ol/Map.js"
+import OlMap from "./ol/Map.js"
 import View from "./ol/View.js"
 import Projection from "./ol/proj/Projection.js"
 import { getCenter } from "./ol/extent.js"
 import proj4 from "proj4"
 import { getPosition } from "suncalc"
+import { Pixel } from "./ol/pixel"
+
+type Maps = { dem: string; occlusion: string; shadowMap: string }
+
+type SliderParams = [string, number, number, number, string]
+
+export type Sliders = { [key: string]: SliderParams }
+
+function getInputValue(id:string){
+    return (document.getElementById(id)! as HTMLInputElement).value
+}
+
 
 export default class ShadedOpenLayers{
-    constructor(maps, projection, extent, sliders, mapId="map"){
+    maps: Maps
+    mapId: string
+    extent: number[]
+    animated: boolean = false
+    currentDate: Date = new Date()
+    projection: string
+    sliders: Sliders
+    
+    constructor(maps: Maps, projection: string, extent: number[], sliders: Sliders, mapId="map"){
         this.maps = maps
         this.mapId = mapId
         this.projection = projection
         this.extent = extent
         this.sliders = sliders
-        this.animationInterval = undefined
-        this.currentDate = new Date()
     }
 
     start(){
-        const {source, tile, map} = this.startOpenLayers(this.mapId)
-        this.createMapControls((id, value) => tile.updateStyleVariables({[id]:value}))
+        const {tile, map} = this.startOpenLayers(this.mapId)
+        this.createMapControls((id: string, value: number) => tile.updateStyleVariables({[id]:value}))
         map.on('pointermove', e => this.printPixel(e.pixel, tile, map))
         this.resetUI()
         this.setTimeValue(new Date())
     }
 
     onUserDateChange(){
-        this.currentDate = new Date(document.getElementById('userDate').value)
+        this.currentDate = new Date(getInputValue('userDate'))
         this.updateSunPosition()
     }
 
-    setTimeValue(date){
-        this.currentDate = date
-        document.getElementById("userDate").valueAsNumber = Math.round((this.currentDate.valueOf() - this.currentDate.getTimezoneOffset() * 60000) / 60000) * 60000;
+    setTimeValue(date: Date){
+        this.currentDate = date;
+        (document.getElementById("userDate")! as HTMLInputElement).valueAsNumber = Math.round((this.currentDate.valueOf() - this.currentDate.getTimezoneOffset() * 60000) / 60000) * 60000;
         this.updateSunPosition()
     }
 
     updateSunPosition(){
         const coordinates = proj4(this.projection, "EPSG:4326").forward([ (this.extent[0]+this.extent[2])/2, (this.extent[1]+this.extent[3])/2 ])
         const sunPosition = getPosition(this.currentDate, coordinates[1], coordinates[0])
-        const azimuthInput = document.getElementById("azimuthInput")
-        azimuthInput.value = (sunPosition.azimuth*180/Math.PI + 180 ) % 360
+        const azimuthInput = document.getElementById("azimuthInput")! as HTMLInputElement
+        azimuthInput.value = ((sunPosition.azimuth*180/Math.PI + 180 ) % 360).toString()
         azimuthInput.dispatchEvent(new Event("input"))
-        const elevationInput = document.getElementById("elevationInput")
-        elevationInput.value = sunPosition.altitude*180/Math.PI
+        const elevationInput = document.getElementById("elevationInput")! as HTMLInputElement
+        elevationInput.value = (sunPosition.altitude*180/Math.PI).toString()
         elevationInput.dispatchEvent(new Event("input"))
     }
 
-    toggleAnimation(step=80000){
-        if(this.animationInterval != undefined ){
-            clearInterval(this.animationInterval);
-            this.animationInterval = undefined;
-        }else{
-            this.animationInterval = setInterval(
-                () => this.setTimeValue(new Date(this.currentDate.getTime() + step)), 
-                100-document.getElementById('animationSpeed').value
+    toggleAnimation(){
+        this.animated = !this.animated
+        this.animate()
+    }
+
+    animate(step=80000){
+        if(this.animated){
+            setTimeout(
+                () => {
+                    this.setTimeValue(new Date(this.currentDate.getTime() + step))
+                    this.animate(step)
+                }, 
+                100-parseInt(getInputValue('animationSpeed'))
             )
         }
     }
 
-    printPixel(pixel, tile, map){
+    printPixel(pixel: Pixel, tile: WebGLTileLayerCustom, map: OlMap){
         const canvas = document.getElementsByClassName("ol-layer")[0]
         const pixelData = tile.getData(pixel)
         if(canvas != undefined && pixelData != null){
             const coordinates = map.getCoordinateFromPixel(pixel)
-            document.getElementById("cursorPosition").innerHTML = `X: ${coordinates[0].toFixed(2)} <br> Y: ${coordinates[1].toFixed(2)} <br> Z: ${pixelData[0].toFixed(2)}`
+            const pixelDataBuffer = pixelData as Uint8ClampedArray | Uint8Array | Float32Array
+            document.getElementById("cursorPosition")!.innerHTML = 
+                `X: ${coordinates[0].toFixed(2)} <br> Y: ${coordinates[1].toFixed(2)} <br> Z: ${pixelDataBuffer[0].toFixed(2)}`
             // To print a more advanced debug in the console:
             /*const gl = canvas.getContext('webgl2')
             if(gl){
@@ -76,9 +101,9 @@ export default class ShadedOpenLayers{
         }
     }
 
-    startOpenLayers(mapElementId){
-        const shadingVariables = {}
-        Object.keys(this.sliders).forEach(sliderName => shadingVariables[sliderName] = 0)
+    startOpenLayers(mapElementId: string){
+        const shadingVariables = new Map<string, number>();
+        Object.keys(this.sliders).forEach(sliderName => shadingVariables.set(sliderName, 0))
     
         const source = new GeoTIFF({
             normalize: false,
@@ -109,7 +134,7 @@ export default class ShadedOpenLayers{
             }
         )
     
-        const map = new Map({
+        const map = new OlMap({
             target: mapElementId,
             layers: [tile],
             view: new View({
@@ -119,26 +144,26 @@ export default class ShadedOpenLayers{
                 zoom: 1,
             })
         });
-        return {source, tile, map}
+        return {tile, map}
     }
 
-    colorStrength(color, variable){
+    colorStrength(color:string, variable:string){
         return `clamp( ${color} + 1.0-${variable}, 0.0, 1.0 )`
     }
 
-    createMapControls(callback){
+    createMapControls(callback: (id: string, value: number) => void){
         Object.keys(this.sliders).forEach(id => {
             const values = this.sliders[id]
-            this.createSlider(document.getElementById("mapControls"), id, values[0], values[1], values[2],  callback, values[4])
+            this.createSlider(document.getElementById("mapControls")!, id, values[0], values[1], values[2],  callback, values[4])
         })
     }
 
-    createSlider(container, id, labelText, min, max, callback, unit="", step=0.01){
+    createSlider(container:HTMLElement, id: string, labelText: string, min:number, max:number, callback: (id: string, value: number) => void, unit="", step=0.01){
         const containerDiv = document.createElement('div')
         containerDiv.id = id
 
         const label = document.createElement('label')
-        label.for = id+"Label"
+        label.htmlFor = id+"Label"
         label.innerText = labelText
 
         const spanValue = document.createElement('span')
@@ -151,9 +176,9 @@ export default class ShadedOpenLayers{
         const input = document.createElement('input')
         input.id = id+"Input"
         input.type = "range"
-        input.min = min
-        input.max = max
-        input.step = step
+        input.min = min.toString()
+        input.max = max.toString()
+        input.step = step.toString()
         input.addEventListener('input', ()=>{
             spanValue.innerText = input.value
             callback(id, parseFloat(input.value))
@@ -174,8 +199,8 @@ export default class ShadedOpenLayers{
 
     resetUI(){
         Object.keys(this.sliders).forEach(entry => {
-            const value = this.sliders[entry][3]
-            document.getElementById(entry+"Input")!.value = value
+            const value = this.sliders[entry][3].toString();
+            (document.getElementById(entry+"Input")! as HTMLInputElement).value = value
             document.getElementById(entry+"Input")!.dispatchEvent(new Event("input"))
             document.getElementById(entry+"Value")!.innerHTML = value
         })

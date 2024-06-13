@@ -1,6 +1,8 @@
-import TileTexture from "./ol/webgl/TileTexture.js"
+import DataTile from "./ol/DataTile.js";
+import { TileRepresentationOptions } from "./ol/webgl/BaseTileRepresentation.js";
+import TileTexture, { TileType } from "./ol/webgl/TileTexture.js"
 
-function bindAndConfigure(gl, texture, interpolate) {
+function bindAndConfigure(gl: WebGL2RenderingContext, texture: WebGLTexture, interpolate: boolean) {
   const resampleFilter = interpolate ? gl.LINEAR : gl.NEAREST;
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -9,7 +11,7 @@ function bindAndConfigure(gl, texture, interpolate) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, resampleFilter);
 }
 
-function uploadDataTexture(gl, texture, data, size, bandCount, interpolate) {
+function uploadDataTexture(gl: WebGL2RenderingContext, texture: WebGLTexture, data: ArrayBufferView, size: number[], bandCount: number, interpolate: boolean) {
   bindAndConfigure(gl, texture, interpolate);
   const bytesPerRow = data.byteLength / size[1];
   let unpackAlignment = 1;
@@ -50,22 +52,32 @@ function uploadDataTexture(gl, texture, data, size, bandCount, interpolate) {
 }
 
 export default class TileTextureCustom extends TileTexture {
-  constructor(options, texturesLayout, float_precision_factor, sourceBandCount) {
+  texturesLayout: any;
+  float_precision_factor: number;
+  sourceBandCount: any;
+
+  constructor(options: TileRepresentationOptions<TileType>, texturesLayout: any, float_precision_factor: number, sourceBandCount: number) {
     super(options);
+    this["getArrayPixelData_"] = this.getArrayPixelData // Hack, do not do this at home
     this.texturesLayout = texturesLayout
     this.float_precision_factor = float_precision_factor
     this.sourceBandCount = sourceBandCount
   }
 
   uploadTile() {
-    const gl = this.helper_.getGL();
-    const data = this.tile.getData();
+    if(! (this.tile instanceof DataTile)){
+      console.error("Only DataTiles are supported")
+      return
+    }
+    
+    const gl = this.helper_.getGL() as WebGL2RenderingContext;
+    const data = this.tile.getData() as Float32Array | Uint8Array;
     const sourceTileSize = this.tile.getSize();
     const pixelSize = [sourceTileSize[0] + 2 * this.gutter_, sourceTileSize[1] + 2 * this.gutter_];
     const pixelCount = pixelSize[0] * pixelSize[1];
 
     const nbTextures = this.texturesLayout.length
-    this.bandCount = this.texturesLayout.reduce((acc, item) => acc + item.bands , 0);
+    this.bandCount = this.texturesLayout.reduce((acc: number, item: { bands: number; }) => acc + item.bands , 0);
     const unpackedBandCount = data.length / pixelCount
 
     let bandToTextureId = []
@@ -80,7 +92,7 @@ export default class TileTextureCustom extends TileTexture {
     this.textures.length = 0;
     const textureDataArrays = new Array(nbTextures);
     for (let textureIndex = 0; textureIndex < nbTextures; textureIndex++) {
-      this.textures.push(gl.createTexture());
+      this.textures.push(gl.createTexture()!);
       const layout = this.texturesLayout[textureIndex]
       textureDataArrays[textureIndex] = new layout.dataType(pixelCount * layout.bands);
     }
@@ -109,10 +121,10 @@ export default class TileTextureCustom extends TileTexture {
     this.setReady();
   }
 
-  getArrayPixelData_(data, sourceSize, renderCol, renderRow) {
+  getArrayPixelData(data: any[], sourceSize: number[], renderCol: number, renderRow: number) {
     const sourceWidth = sourceSize[0] + 2 * this.gutter_;
-    const sourceCol = this.gutter_ + Math.floor(sourceSize[0] * (renderCol / this.renderSize_[0]));
-    const sourceRow = this.gutter_ + Math.floor(sourceSize[1] * (renderRow /  this.renderSize_[1]));
+    const sourceCol = this.gutter_ + Math.floor(sourceSize[0] * (renderCol / (this as any).renderSize_[0])); // Ugly, but required
+    const sourceRow = this.gutter_ + Math.floor(sourceSize[1] * (renderRow /  (this as any).renderSize_[1]));
     const offset = this.sourceBandCount * (sourceRow * sourceWidth + sourceCol);
     return data.slice(offset, offset + this.sourceBandCount);
   }

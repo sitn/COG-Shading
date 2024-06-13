@@ -1,9 +1,9 @@
-import ShadedOpenLayers from "./ShadedOpenLayers.ts"
+import ShadedOpenLayers, { Sliders } from "./ShadedOpenLayers.ts"
 
 import proj4 from "proj4"
 import {register} from "./ol/proj/proj4.js"
 
-const sliders = {
+const sliders: Sliders = {
     // ID           Name           Min  Max Default  Unit
     "elevation"  : ["Sun elevation", 0,    90,  45, '°'],
     "azimuth"    : ["Sun azimuth",   0, 359.9,  45, '°'],
@@ -23,12 +23,13 @@ proj4.defs(projection, "+proj=somerc +lat_0=46.95240555555556 +lon_0=7.439583333
 register(proj4);
 
 const shadedOpenLayers = new ShadedOpenLayers({
-    dem : 'https://sitn.ne.ch/services/cog/shading/sitg/mns2023_10cm_sitg_cog_full.tif',
-    occlusion : 'https://sitn.ne.ch/services/cog/shading/sitg/ao_mns2023_10cm_sitg_highres_cog_full.tif',
-    shadowMap : 'https://sitn.ne.ch/services/cog/shading/sitg/sm_mns2023_10cm_sitg_cog_full.tif',
+    dem : 'https://sitn.ne.ch/services/cog/shading/sitg/mns2023_10cm_sitg_cog.tif',
+    occlusion : 'https://sitn.ne.ch/services/cog/shading/sitg/ao_mns2023_10cm_sitg_highres_cog.tif',
+    shadowMap : 'https://sitn.ne.ch/services/cog/shading/sitg/sm_mns2023_10cm_sitg_cog.tif',
 }, projection, extent, sliders)
 
-document.body.onload = () => shadedOpenLayers.start()
-document.getElementById("userDate").onchange = () => shadedOpenLayers.onUserDateChange()
-document.getElementById("animationSpeed").oninput = () => shadedOpenLayers.toggleAnimation();shadedOpenLayers.toggleAnimation();
-document.getElementById("playStopButton").onclick = () => shadedOpenLayers.toggleAnimation()
+document.body.onload = () => {
+    shadedOpenLayers.start()
+    document.getElementById("userDate")!.onchange = () => shadedOpenLayers.onUserDateChange()
+    document.getElementById("playStopButton")!.onclick = () => shadedOpenLayers.toggleAnimation()
+}

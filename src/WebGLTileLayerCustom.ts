@@ -3,12 +3,21 @@ import TileTextureCustom from "./TileTextureCustom.js"
 import WebGLTile from "./ol/layer/WebGLTile.js"
 import TileLayer, {Attributes, Uniforms} from "./ol/renderer/webgl/TileLayer.js"
 import {getStringNumberEquivalent, newCompilationContext, uniformNameForVariable} from "./ol/expr/gpu.js"
+import { TileRepresentationOptions } from "./ol/webgl/BaseTileRepresentation.js"
+import { TileType } from "./ol/webgl/TileTexture.js"
+
+type Style = { vertexShader: any; fragmentShader: any; uniforms: any; paletteTextures: any }
+type StyleVariables = { variables: { [x: string]: any }; color: any[] }
+type TextureParams = {nbDirAzimuth : number, nbDirElevation : number, layout :  TextureLayout}
+type TextureLayout = [ {dataType:Uint32Array, bands:number, packed:boolean, type:string} ]
 
 const float_precision_factor = 100_000
 const NB_VALUES_IN_BAND = 6;
 
 class WebGLTileLayerRendererCustom extends TileLayer {
-    constructor(tileLayer, parsedStyle, cacheSize) {
+    texturesLayout: TextureLayout
+    
+    constructor(tileLayer: WebGLTileLayerCustom, parsedStyle: Style, cacheSize: any) {
       super(tileLayer, {
         vertexShader: parsedStyle.vertexShader,
         fragmentShader: parsedStyle.fragmentShader,
@@ -18,25 +27,30 @@ class WebGLTileLayerRendererCustom extends TileLayer {
       });
       this.texturesLayout = tileLayer.textures.layout
     }
-    createTileRepresentation(options) {
+    createTileRepresentation(options: TileRepresentationOptions<TileType>) {
         const sourceBandCount = this.texturesLayout.reduce((acc, item) => acc += item.bands * (item.packed ? 2 : 1), 0)
         return new TileTextureCustom(options, this.texturesLayout, float_precision_factor, sourceBandCount);
     }
 }
 
 export default class WebGLTileLayerCustom extends WebGLTile {
-    constructor(options) {
+    textures: TextureParams
+    getSourceBandCount: any
+
+    constructor(options : any) { // TODO Define proper type
         super(options)
         this.textures = options.textures
+        this.getSourceBandCount = this['getSourceBandCount_'] // TODO Hack
     }
-    createRenderer() {
+    
+    createRenderer() : WebGLTileLayerRendererCustom {
         const nbShadowBands =  this.textures.layout.filter(t => t.type == "shadow").reduce((acc, item) => acc += item.bands, 0)
-        const style = parseStyle(this.style_, this.getSourceBandCount_(), this.textures.layout.length, this.textures.nbDirAzimuth, this.textures.nbDirElevation, nbShadowBands)
-        return new WebGLTileLayerRendererCustom(this, style, this.cacheSize_);
+        const style = parseStyle(this['style_'], this.getSourceBandCount(), this.textures.layout.length, this.textures.nbDirAzimuth, this.textures.nbDirElevation, nbShadowBands)
+        return new WebGLTileLayerRendererCustom(this, style, this['cacheSize_']);
     }
 }
 
-function parseStyle(style, bandCount, nbTextures, nbDirAzimuth, nbDirElevation, nbShadowBands) {
+function parseStyle(style: StyleVariables, bandCount:number, nbTextures:number, nbDirAzimuth:number, nbDirElevation:number, nbShadowBands:number) {
     const vertexShader = `#version 300 es
         in vec2 ${Attributes.TEXTURE_COORD};
         uniform mat4 ${Uniforms.TILE_TRANSFORM};
@@ -65,7 +79,7 @@ function parseStyle(style, bandCount, nbTextures, nbDirAzimuth, nbDirElevation, 
         style: style,
     };
 
-    const uniforms = {};
+    const uniforms : {[key: string]: () => number} = {};
     const variablesNames = Object.keys(style.variables);
     for (let i = 0; i < variablesNames.length; ++i) {
         uniforms[uniformNameForVariable(variablesNames[i])] = () => {
