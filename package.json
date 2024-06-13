@@ -2,6 +2,7 @@
   "name": "cog-shading",
   "version": "1.0.0",
   "description": "Visualization tool for COG rasters with their shading",
+  "type": "module",
   "main": "index.js",
   "scripts": {
     "start": "vite",

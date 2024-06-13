@@ -32,4 +32,5 @@ document.body.onload = () => {
     shadedOpenLayers.start()
     document.getElementById("userDate")!.onchange = () => shadedOpenLayers.onUserDateChange()
     document.getElementById("playStopButton")!.onclick = () => shadedOpenLayers.toggleAnimation()
+    document.getElementById("reset")!.onclick = () => shadedOpenLayers.resetUI()
 }
