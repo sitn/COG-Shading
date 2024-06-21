@@ -10,7 +10,7 @@ const sliders: Sliders = {
         azimuth    : ["Soleil - Azimuth", 0, 359.9, '°'],
         occlusion  : ["Occlusion", 0, 1.1, ''],
         shadow     : ["Ombres portées", 0, 1, ''],
-        zFactor    : ["Exaggeration du terrain", 0, 7, 'x'],
+        zFactor    : ["Exagération du terrain", 0, 7, 'x'],
         brightness : ["Luminosité",  -0.75, 0.75, ''],
         exposure   : ["Exposition", 0, 1, ''],
         contrast   : ["Contraste", 0, 2, ''],
