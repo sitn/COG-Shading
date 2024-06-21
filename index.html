@@ -6,23 +6,32 @@
     <title>COG Shading</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@9.1.0/ol.min.css">
     <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/x-icon" href="https://sitn.ne.ch/static/2601/images/favicon.ico">
 </head>
 <body>
     <div id="panelLeft">
         <div id="mapControls">
-            <h2>Shading</h2>
+            <h2>Ombrage</h2>
             <div style="text-align: center;">
                 <input id="userDate" type="datetime-local">
-                <button id="playStopButton" style="padding:5px;margin-bottom:15px;">Play / Stop</button>
-                <label>Speed</label><input id="animationSpeed" type="range" min="0" max="100" step="1">
+                <button id="playStopButton" style="padding:5px;margin-bottom:15px;">Start / Stop</button>
+                <label>Vitesse d'animation</label><input id="animationSpeed" type="range" min="0" max="100" step="1">
             </div>
             <hr>
         </div>
-        <button id="reset">Reset</button>
+        <p>Paramètres prédéfinits</p>
+        <button id="reset">Réinitiatliser</button>
+        <button id="archeo">Archéologie</button>
         <hr>
         <div>
-            <p>Cursor position :</p>
+            <p>Position au curseur :</p>
             <div id="cursorPosition"></div>
+        </div>
+        <hr>
+        <div id="copyrights">
+            <p>Viewer by <a href="https://sitn.ne.ch">SITN</a><br></p>
+            <a href="https://github.com/sitn/COG-Shading"><img src="./assets/github.svg"></a>
+            <a href="mailto:sitn@ne.ch"><img src="./assets/mail.svg"></a>
         </div>
     </div>
     <div id="map"></div>

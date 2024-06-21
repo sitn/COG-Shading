@@ -9,15 +9,12 @@ import { getPosition } from "suncalc"
 import { Pixel } from "./ol/pixel"
 
 type Maps = { dem: string; occlusion: string; shadowMap: string }
-
-type SliderParams = [string, number, number, number, string]
-
-export type Sliders = { [key: string]: SliderParams }
+type SliderParams = [string, number, number, string]
+export type Sliders = { inputs: {[key: string]: SliderParams}, values:any }
 
 function getInputValue(id:string){
     return (document.getElementById(id)! as HTMLInputElement).value
 }
-
 
 export default class ShadedOpenLayers{
     maps: Maps
@@ -40,7 +37,7 @@ export default class ShadedOpenLayers{
         const {tile, map} = this.startOpenLayers(this.mapId)
         this.createMapControls((id: string, value: number) => tile.updateStyleVariables({[id]:value}))
         map.on('pointermove', e => this.printPixel(e.pixel, tile, map))
-        this.resetUI()
+        this.setUI()
         this.setTimeValue(new Date())
     }
 
@@ -117,7 +114,7 @@ export default class ShadedOpenLayers{
                 source: source,
                 style: {
                     variables: shadingVariables,
-                    color: [`clamp(pow(${[`hillshade()`, occlusionColor, shadowColor].join('*')}, 1.0-u_var_brightness), 0.0, 1.0)`]
+                    color: [this.colorCorrections(`${[`(hillshade()`, occlusionColor, shadowColor].join('*')})`)]
                 },
                 textures :{
                     nbDirAzimuth : 90,
@@ -147,14 +144,22 @@ export default class ShadedOpenLayers{
         return {tile, map}
     }
 
+    colorCorrections(color: string){
+        const contrast   = `clamp( u_var_contrast*(${color}-0.5) + 0.5, 0.0, 1.0)` 
+        const exposure   = `clamp(${contrast} * (1.0+u_var_exposure), 0.0, 1.0)`
+        const gamma      = `pow(${exposure}, 1.0/u_var_gamma)`
+        const brightness = `clamp(${gamma} + u_var_brightness, 0.0, 1.0)`
+        return brightness
+    }
+
     colorStrength(color:string, variable:string){
         return `clamp( ${color} + 1.0-${variable}, 0.0, 1.0 )`
     }
 
     createMapControls(callback: (id: string, value: number) => void){
-        Object.keys(this.sliders).forEach(id => {
-            const values = this.sliders[id]
-            this.createSlider(document.getElementById("mapControls")!, id, values[0], values[1], values[2],  callback, values[4])
+        Object.keys(this.sliders.inputs).forEach(id => {
+            const values = this.sliders.inputs[id]
+            this.createSlider(document.getElementById("mapControls")!, id, values[0], values[1], values[2],  callback, values[3])
         })
     }
 
@@ -197,9 +202,9 @@ export default class ShadedOpenLayers{
         container.appendChild(containerDiv)
     }
 
-    resetUI(){
-        Object.keys(this.sliders).forEach(entry => {
-            const value = this.sliders[entry][3].toString();
+    setUI(valuesType="default"){
+        Object.keys(this.sliders.values[valuesType]).forEach(entry => {
+            const value = this.sliders.values[valuesType][entry].toString();
             (document.getElementById(entry+"Input")! as HTMLInputElement).value = value
             document.getElementById(entry+"Input")!.dispatchEvent(new Event("input"))
             document.getElementById(entry+"Value")!.innerHTML = value

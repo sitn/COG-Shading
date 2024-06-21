@@ -4,17 +4,45 @@ import proj4 from "proj4"
 import {register} from "./ol/proj/proj4.js"
 
 const sliders: Sliders = {
-    // ID           Name           Min  Max Default  Unit
-    "elevation"  : ["Sun elevation", 0,    90,  45, '°'],
-    "azimuth"    : ["Sun azimuth",   0, 359.9,  45, '°'],
-    "occlusion"  : ["Occlusion",     0,   1.1, 0.9,  ''],
-    "shadow"     : ["Shadow",        0,     1, 0.5,  ''],
-    "zFactor"    : ["Terrain Exaggeration",  0,     5,   1, 'x'],
-    "brightness" : ["Brightness",  -0.75,     0.75,   0,  ''],
-    "exposure"   : ["Exposure",     -1,     1,   0,  ''],
-    "contrast"   : ["Contrast",     -1,     1,   0,  ''],
-    "gamma"      : ["Gamma",         0,    10,   1,  ''],
-    "dilation"   : ["dilation",      0,     3,   1,  ''],
+    inputs : {
+         // ID       Name, Min, Max, Unit
+        elevation  : ["Soleil - Elevation", 0, 90, '°'],
+        azimuth    : ["Soleil - Azimuth", 0, 359.9, '°'],
+        occlusion  : ["Occlusion", 0, 1.1, ''],
+        shadow     : ["Ombres portées", 0, 1, ''],
+        zFactor    : ["Exaggeration du terrain", 0, 7, 'x'],
+        brightness : ["Luminosité",  -0.75, 0.75, ''],
+        exposure   : ["Exposition", 0, 1, ''],
+        contrast   : ["Contraste", 0, 2, ''],
+        gamma      : ["Gamma", 0, 10, ''],
+        dilation   : ["dilation", 0, 3, ''],
+    },
+    values: {
+        default: {
+            "elevation"  : 45,
+            "azimuth"    : 45,
+            "occlusion"  : 0.9,
+            "shadow"     : 0.5, 
+            "zFactor"    : 1, 
+            "brightness" : 0, 
+            "exposure"   : 0,  
+            "contrast"   : 1,  
+            "gamma"      : 1,  
+            "dilation"   : 1,  
+        },
+        archeo: {
+            "elevation"  : 35,
+            "azimuth"    : 0,
+            "occlusion"  : 0.5,
+            "shadow"     : 0, 
+            "zFactor"    : 6, 
+            "brightness" : 0, 
+            "exposure"   : 0.5,  
+            "contrast"   : 0.4,  
+            "gamma"      : 0.57,  
+            "dilation"   : 1,  
+        }
+    }
 }
 
 const extent = [2485250,1109500, 2513250,1136000]
@@ -32,5 +60,6 @@ document.body.onload = () => {
     shadedOpenLayers.start()
     document.getElementById("userDate")!.onchange = () => shadedOpenLayers.onUserDateChange()
     document.getElementById("playStopButton")!.onclick = () => shadedOpenLayers.toggleAnimation()
-    document.getElementById("reset")!.onclick = () => shadedOpenLayers.resetUI()
+    document.getElementById("reset")!.onclick = () => shadedOpenLayers.setUI("default")
+    document.getElementById("archeo")!.onclick = () => shadedOpenLayers.setUI("archeo")
 }

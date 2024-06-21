@@ -17,6 +17,10 @@ h2{
 hr{
     margin: 15px 0px 15px 0px;
 }
+a{
+    color: black;
+    text-decoration: underline;
+}
 #userDate{
     margin-bottom: 15px;
 }
@@ -32,9 +36,8 @@ hr{
 #panelLeft > button{
     width:100%;
     margin-top:10px;
-    margin-bottom:10px;
 }
-#exposure, #contrast, #gamma, #dilation{
+#brightness, #contrast, #gamma, #dilation{
     display:none;
 }
 #mapControls > div{
@@ -51,4 +54,12 @@ hr{
 }
 #mapControls > div > div > div{
     padding-left: 5px;
+}
+#copyrights{
+    margin:30px;
+    text-align: center;
+}
+#copyrights img{
+    width: 20px;
+    padding: 5px;
 }
