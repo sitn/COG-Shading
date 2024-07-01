@@ -114,7 +114,7 @@ function parseStyle(style: StyleVariables, bandCount:number, nbTextures:number, 
 
         const float PI = 3.14159265;
 
-        float hillshadeValue(float xOffset, float yOffset){
+        float elevationValue(float xOffset, float yOffset){
             vec2 coord = v_textureCoord + vec2(xOffset/${Uniforms.TEXTURE_PIXEL_WIDTH}, yOffset/${Uniforms.TEXTURE_PIXEL_HEIGHT});
             return float(texture(${Uniforms.TILE_TEXTURE_ARRAY}[0], coord)[0])/${float_precision_factor}.0;
         }
@@ -138,27 +138,27 @@ function parseStyle(style: StyleVariables, bandCount:number, nbTextures:number, 
             uint bandIndex = direction_index/uint(NB_VALUES_IN_BAND);
 
             highp uint bandValue = getShadowValue(bandIndex, xOffset, yOffset);
-            highp uint shifted = bandValue >> (bandMod*5u); // bandValue >> (bandMod*5u);
+            highp uint shifted = bandValue >> (bandMod*5u);
             float texture_elevation = float((shifted << 27) >> 27);
             return clamp( (u_var_elevation*NB_ELEVATIONS/90.0) - texture_elevation, -0.5, 0.5)+0.5;
         }
 
         float blurredShadowMap(){
-            const int kernelSize = 2;
-            float dilation = u_var_dilation;
+            const int kernelSize = 1;
             const int kernelDiam = 2 * kernelSize + 1;
-            const float weights[5] = float[](0.15, 0.2, 0.3, 0.2, 0.15);
+            //const float weights[5] = float[](0.15, 0.2, 0.3, 0.2, 0.15);
+            const float weights[3] = float[](0.2, 0.5, 0.2);
 
             float color = 0.0;
             for(int i=0; i<kernelDiam; i++){
                 for(int j=0; j<kernelDiam; j++){
-                    color += shadowMap(float(i-kernelSize)*dilation, float(j-kernelSize)*dilation) * weights[i] * weights[j];
+                    color += shadowMap(float(i-kernelSize)*u_var_shadowDilation, float(j-kernelSize)*u_var_shadowDilation) * weights[i] * weights[j];
                 }
             }
             return color*color*color; // Exaggerate values toward black so that shadows do not shrink when blurred
         }
 
-        float hillshade(){
+        float hillshade(float azimuth){
             float INVERSE_RESOLUTION   = 1.0 / ${Uniforms.RESOLUTION};
             float INVERSE_PIXEL_WIDTH  = 1.0 / ${Uniforms.TEXTURE_PIXEL_WIDTH};
             float INVERSE_PIXEL_HEIGHT = 1.0 / ${Uniforms.TEXTURE_PIXEL_HEIGHT};
@@ -174,17 +174,43 @@ function parseStyle(style: StyleVariables, bandCount:number, nbTextures:number, 
             float min = -(1.0-float(isLeftBorder));
             float max = 1.0-float(isRightBorder);
             float res_factor = 2.0 * (1.0-float(isLeftRightBorder)) + float(isLeftRightBorder);
-            float dzdx = (hillshadeValue(max, 0.0) - hillshadeValue(min, 0.0)) * (INVERSE_RESOLUTION/res_factor);
+            float dzdx = (elevationValue(max, 0.0) - elevationValue(min, 0.0)) * (INVERSE_RESOLUTION/res_factor);
 
             min = -(1.0-float(isTopBorder));
             max = 1.0-float(isBottomBorder);
             res_factor = 2.0 * (1.0-float(isTopBottomBorder)) + float(isTopBottomBorder);
-            float dzdy = (hillshadeValue(0.0, max) - hillshadeValue(0.0, min)) * (INVERSE_RESOLUTION/res_factor);
+            float dzdy = (elevationValue(0.0, max) - elevationValue(0.0, min)) * (INVERSE_RESOLUTION/res_factor);
 
             float slope = atan(u_var_zFactor * sqrt(dzdx*dzdx + dzdy*dzdy));
             float aspect = clamp( atan(-1.0*dzdx, dzdy) , -PI, PI);
             float zenithRad = (90.0 - u_var_elevation) * (PI/180.0);
-            return clamp(cos(zenithRad) * cos(slope) + sin(zenithRad) * sin(slope) * cos(u_var_azimuth * (PI/180.0) - aspect), 0.0, 1.0);
+            return clamp(cos(zenithRad) * cos(slope) + sin(zenithRad) * sin(slope) * cos(mod(azimuth,360.0) * (PI/180.0) - aspect), 0.0, 1.0);
+        }
+
+        float laplacianOfGaussian(){
+            /*float kernel[9] = float[](
+                0.0, -1.0,  0.0,
+                -1.0, 4.0, -1.0,
+                0.0, -1.0,  0.0
+            );*/
+
+            float kernel[9] = float[](
+                -0.24589570215836298,0.05736962769795373,-0.24589570215836298,
+                0.05736962769795373,0.754104297841637,0.05736962769795373,
+                -0.24589570215836298,0.05736962769795373,-0.24589570215836298
+            );
+
+            const int kernelSize = 1;
+            float dilation = u_var_laplacianDilation;
+            float color = 0.0;
+            int i = 0;
+            for(int x=-kernelSize; x<=kernelSize; x++){
+                for(int y=-kernelSize; y<=kernelSize; y++){
+                    color += elevationValue(dilation*float(x), dilation*float(y)) * kernel[i];
+                    i++;
+                }
+            }
+            return sign(color)*pow(abs(color), 0.25);
         }
     
         void main() {
@@ -192,9 +218,38 @@ function parseStyle(style: StyleVariables, bandCount:number, nbTextures:number, 
                 discard;
             }
             float grey = ${style.color[0]};
-            color = vec4(grey, grey, grey, 1.0) * ${Uniforms.TRANSITION_ALPHA} * float(hillshadeValue(0.0, 0.0) != 0.0);
+            float redPower = ${style.color[1]};
+            float greenPower = ${style.color[2]};
+            float bluePower = ${style.color[3]};
+            color = vec4(
+                grey*redPower, 
+                grey*greenPower, 
+                grey*bluePower, 
+            1.0) * ${Uniforms.TRANSITION_ALPHA} * float(elevationValue(0.0, 0.0) != 0.0);
         }`;
 
     console.log(fragmentShader)
     return {vertexShader, fragmentShader, uniforms, paletteTextures: context.paletteTextures};
 }
+
+/*
+function get_LoG_kernel(sigma, size){
+    let result_inner = []
+    let sum = 0
+    let halfSize = Math.floor(size/2)
+    for(let x=-halfSize; x<=halfSize; x++){
+        for(let y=-halfSize; y<=halfSize; y++){
+            const d = (x*x+y*y)/(2*sigma*sigma)
+            const val = (1-d) * Math.exp(-d)
+            sum += val
+            result_inner.push(val)
+        }
+    }
+    for(let i=0; i<result_inner.length; i++){
+        result_inner[i] -= sum/(result_inner.length)
+    }
+    console.log("["+result_inner.join(',')+"]")
+    return result_inner
+}
+
+    */

@@ -108,13 +108,24 @@ export default class ShadedOpenLayers{
             sources: [{url:this.maps.dem}, {url:this.maps.occlusion}, {url:this.maps.shadowMap}]
         });
     
-        const occlusionColor = this.colorStrength(`occlusion()`, 'u_var_occlusion')
-        const shadowColor    = this.colorStrength(`blurredShadowMap()`, 'u_var_shadow')
+        const occlusionColor = this.colorAdd(`occlusion()`, 'u_var_occlusion')
+        const shadowColor    = this.colorAdd(`blurredShadowMap()`, 'u_var_shadow')
+        const hillshade = `(u_var_multiDirHillshade*(
+            hillshade(u_var_azimuth) + 
+            hillshade(u_var_azimuth+120.0) + 
+            hillshade(u_var_azimuth-120.0)
+            )/3.0 + hillshade(u_var_azimuth)*(1.0-u_var_multiDirHillshade))`
         const tile = new WebGLTileLayerCustom({
                 source: source,
                 style: {
                     variables: shadingVariables,
-                    color: [this.colorCorrections(`${[`(hillshade()`, occlusionColor, shadowColor].join('*')})`)]
+                    color: [
+                        `(`+this.colorCorrections(`${[hillshade,occlusionColor, shadowColor].join('*')}`)+/*`+(laplacianOfGaussian()*u_var_laplacian)`+*/`)`,
+                        `1.0`,
+                        `1.0`,
+                        `1.0`  
+                    ]
+                   //color : ["laplacianOfGaussian()"]
                 },
                 textures :{
                     nbDirAzimuth : 90,
@@ -152,7 +163,7 @@ export default class ShadedOpenLayers{
         return brightness
     }
 
-    colorStrength(color:string, variable:string){
+    colorAdd(color:string, variable:string){
         return `clamp( ${color} + 1.0-${variable}, 0.0, 1.0 )`
     }
 
