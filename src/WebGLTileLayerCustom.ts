@@ -146,19 +146,17 @@ function parseStyle(style: StyleVariables, bandCount:number, nbTextures:number, 
         float blurredShadowMap(){
             const int kernelSize = 1;
             const int kernelDiam = 2 * kernelSize + 1;
-            //const float weights[5] = float[](0.15, 0.2, 0.3, 0.2, 0.15);
             const float weights[3] = float[](0.2, 0.5, 0.2);
-
             float color = 0.0;
             for(int i=0; i<kernelDiam; i++){
                 for(int j=0; j<kernelDiam; j++){
-                    color += shadowMap(float(i-kernelSize)*u_var_shadowDilation, float(j-kernelSize)*u_var_shadowDilation) * weights[i] * weights[j];
+                    color += shadowMap(float(i-kernelSize)*u_var_shadow_dilation, float(j-kernelSize)*u_var_shadow_dilation) * weights[i] * weights[j];
                 }
             }
             return color*color*color; // Exaggerate values toward black so that shadows do not shrink when blurred
         }
 
-        float hillshade(float azimuth){
+        vec2 getDerivative(){
             float INVERSE_RESOLUTION   = 1.0 / ${Uniforms.RESOLUTION};
             float INVERSE_PIXEL_WIDTH  = 1.0 / ${Uniforms.TEXTURE_PIXEL_WIDTH};
             float INVERSE_PIXEL_HEIGHT = 1.0 / ${Uniforms.TEXTURE_PIXEL_HEIGHT};
@@ -167,7 +165,6 @@ function parseStyle(style: StyleVariables, bandCount:number, nbTextures:number, 
             bool isRightBorder  = v_textureCoord.x > 1.0 - INVERSE_PIXEL_WIDTH;
             bool isTopBorder    = v_textureCoord.y < INVERSE_PIXEL_HEIGHT;
             bool isBottomBorder = v_textureCoord.y > 1.0 - INVERSE_PIXEL_HEIGHT;
-
             bool isLeftRightBorder = isLeftBorder   || isRightBorder;
             bool isTopBottomBorder = isBottomBorder || isTopBorder;
 
@@ -180,52 +177,64 @@ function parseStyle(style: StyleVariables, bandCount:number, nbTextures:number, 
             max = 1.0-float(isBottomBorder);
             res_factor = 2.0 * (1.0-float(isTopBottomBorder)) + float(isTopBottomBorder);
             float dzdy = (elevationValue(0.0, max) - elevationValue(0.0, min)) * (INVERSE_RESOLUTION/res_factor);
+            return vec2(dzdx, dzdy);
+        }
 
-            float slope = atan(u_var_zFactor * sqrt(dzdx*dzdx + dzdy*dzdy));
-            float aspect = clamp( atan(-1.0*dzdx, dzdy) , -PI, PI);
+        float hillshade(float azimuth, vec2 dz){;
+            float slope = atan(u_var_zFactor * sqrt(dz.x*dz.x + dz.y*dz.y));
+            float aspect = clamp( atan(-1.0*dz.x, dz.y) , -PI, PI);
             float zenithRad = (90.0 - u_var_elevation) * (PI/180.0);
             return clamp(cos(zenithRad) * cos(slope) + sin(zenithRad) * sin(slope) * cos(mod(azimuth,360.0) * (PI/180.0) - aspect), 0.0, 1.0);
         }
 
         float laplacianOfGaussian(){
-            /*float kernel[9] = float[](
-                0.0, -1.0,  0.0,
-                -1.0, 4.0, -1.0,
-                0.0, -1.0,  0.0
-            );*/
-
-            float kernel[9] = float[](
-                -0.24589570215836298,0.05736962769795373,-0.24589570215836298,
-                0.05736962769795373,0.754104297841637,0.05736962769795373,
-                -0.24589570215836298,0.05736962769795373,-0.24589570215836298
-            );
-
             const int kernelSize = 1;
-            float dilation = u_var_laplacianDilation;
+            const float kernel[9] = float[](
+                -0.2458957, 0.0573696, -0.2458957,
+                 0.0573696, 0.7541042,  0.0573696,
+                -0.2458957, 0.0573696, -0.2458957
+            );
             float color = 0.0;
             int i = 0;
             for(int x=-kernelSize; x<=kernelSize; x++){
                 for(int y=-kernelSize; y<=kernelSize; y++){
-                    color += elevationValue(dilation*float(x), dilation*float(y)) * kernel[i];
+                    color += elevationValue(u_var_laplacian_dilation*float(x), u_var_laplacian_dilation*float(y)) * kernel[i];
                     i++;
                 }
             }
             return sign(color)*pow(abs(color), 0.25);
+        }
+
+        float colorCorrect(float color){
+            float contrast = clamp( u_var_contrast*(color-0.5) + 0.5, 0.0, 1.0);
+            float exposure = clamp(contrast * (1.0+u_var_exposure), 0.0, 1.0);
+            return clamp(pow(exposure, 1.0/u_var_gamma) + u_var_brightness, 0.0, 1.0);
         }
     
         void main() {
             if (v_mapCoord[0] < ${Uniforms.RENDER_EXTENT}[0] || v_mapCoord[1] < ${Uniforms.RENDER_EXTENT}[1] || v_mapCoord[0] > ${Uniforms.RENDER_EXTENT}[2] || v_mapCoord[1] > ${Uniforms.RENDER_EXTENT}[3]) {
                 discard;
             }
+
+            vec2 dz = getDerivative();
+            float slope = atan(u_var_zFactor * sqrt(dz.x*dz.x + dz.y*dz.y));
+
+            float hillshadeBase  = hillshade(u_var_azimuth, dz);
+            float hillshadePlus  = hillshade(u_var_azimuth+u_var_hillshade_dilation, dz);
+            float hillshadeMinus = hillshade(u_var_azimuth-u_var_hillshade_dilation, dz);
+            float multiHillshade = u_var_hillshade_color + (1.0-u_var_hillshade_color) * (hillshadeBase + hillshadePlus + hillshadeMinus)/3.0;
+
             float grey = ${style.color[0]};
-            float redPower = ${style.color[1]};
-            float greenPower = ${style.color[2]};
-            float bluePower = ${style.color[3]};
-            color = vec4(
-                grey*redPower, 
-                grey*greenPower, 
-                grey*bluePower, 
-            1.0) * ${Uniforms.TRANSITION_ALPHA} * float(elevationValue(0.0, 0.0) != 0.0);
+            grey = u_var_laplacian*laplacianOfGaussian() + (1.0-u_var_laplacian)*grey;
+            grey = u_var_slope*slope + (1.0-u_var_slope)*grey;
+            grey = colorCorrect(grey);
+
+            color = vec4( 
+                grey*pow((1.0-u_var_hillshade_color + hillshadeBase*u_var_hillshade_color), u_var_hillshade_color_power), 
+                grey*pow((1.0-u_var_hillshade_color + hillshadePlus*u_var_hillshade_color), u_var_hillshade_color_power), 
+                grey*pow((1.0-u_var_hillshade_color + hillshadeMinus*u_var_hillshade_color), u_var_hillshade_color_power), 
+                1.0);
+            color *= ${Uniforms.TRANSITION_ALPHA} * float(elevationValue(0.0, 0.0) != 0.0);
         }`;
 
     console.log(fragmentShader)

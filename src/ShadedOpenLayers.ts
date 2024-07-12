@@ -10,7 +10,7 @@ import { Pixel } from "./ol/pixel"
 
 type Maps = { dem: string; occlusion: string; shadowMap: string }
 type SliderParams = [string, number, number, string]
-export type Sliders = { inputs: {[key: string]: SliderParams}, values:any }
+export type Sliders = { inputs: {[key: string]: SliderParams}, modes:any }
 
 function getInputValue(id:string){
     return (document.getElementById(id)! as HTMLInputElement).value
@@ -107,25 +107,12 @@ export default class ShadedOpenLayers{
             interpolate: false,
             sources: [{url:this.maps.dem}, {url:this.maps.occlusion}, {url:this.maps.shadowMap}]
         });
-    
-        const occlusionColor = this.colorAdd(`occlusion()`, 'u_var_occlusion')
-        const shadowColor    = this.colorAdd(`blurredShadowMap()`, 'u_var_shadow')
-        const hillshade = `(u_var_multiDirHillshade*(
-            hillshade(u_var_azimuth) + 
-            hillshade(u_var_azimuth+120.0) + 
-            hillshade(u_var_azimuth-120.0)
-            )/3.0 + hillshade(u_var_azimuth)*(1.0-u_var_multiDirHillshade))`
+
         const tile = new WebGLTileLayerCustom({
                 source: source,
                 style: {
                     variables: shadingVariables,
-                    color: [
-                        `(`+this.colorCorrections(`${[hillshade,occlusionColor, shadowColor].join('*')}`)+/*`+(laplacianOfGaussian()*u_var_laplacian)`+*/`)`,
-                        `1.0`,
-                        `1.0`,
-                        `1.0`  
-                    ]
-                   //color : ["laplacianOfGaussian()"]
+                    color: [`(`+`${[`multiHillshade`, `clamp(occlusion()+1.0-u_var_occlusion, 0.0, 1.0)`, `clamp(blurredShadowMap()+1.0-u_var_shadow, 0.0, 1.0)`].join('*')}`+`)`]
                 },
                 textures :{
                     nbDirAzimuth : 90,
@@ -153,18 +140,6 @@ export default class ShadedOpenLayers{
             })
         });
         return {tile, map}
-    }
-
-    colorCorrections(color: string){
-        const contrast   = `clamp( u_var_contrast*(${color}-0.5) + 0.5, 0.0, 1.0)` 
-        const exposure   = `clamp(${contrast} * (1.0+u_var_exposure), 0.0, 1.0)`
-        const gamma      = `pow(${exposure}, 1.0/u_var_gamma)`
-        const brightness = `clamp(${gamma} + u_var_brightness, 0.0, 1.0)`
-        return brightness
-    }
-
-    colorAdd(color:string, variable:string){
-        return `clamp( ${color} + 1.0-${variable}, 0.0, 1.0 )`
     }
 
     createMapControls(callback: (id: string, value: number) => void){
@@ -213,12 +188,17 @@ export default class ShadedOpenLayers{
         container.appendChild(containerDiv)
     }
 
-    setUI(valuesType="default"){
-        Object.keys(this.sliders.values[valuesType]).forEach(entry => {
-            const value = this.sliders.values[valuesType][entry].toString();
-            (document.getElementById(entry+"Input")! as HTMLInputElement).value = value
-            document.getElementById(entry+"Input")!.dispatchEvent(new Event("input"))
-            document.getElementById(entry+"Value")!.innerHTML = value
+    setUI(mode: string | null = null){
+        const defaultMode = Object.keys(this.sliders.modes)[0]
+        if(mode == null){
+            mode = defaultMode
+        }
+        Object.keys(this.sliders.inputs).forEach(key => {
+            const currentMode = Object.keys(this.sliders.modes[mode]).includes(key) ? mode : defaultMode
+            const value = this.sliders.modes[currentMode][key].toString();
+            (document.getElementById(key+"Input")! as HTMLInputElement).value = value
+            document.getElementById(key+"Input")!.dispatchEvent(new Event("input"))
+            document.getElementById(key+"Value")!.innerHTML = value
         })
     }
 }

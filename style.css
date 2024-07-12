@@ -12,7 +12,11 @@ body{
 }
 h2{
     text-align: center;
-    margin: 10px 0px 20px 0px;
+    margin-bottom: 20px;
+}
+h3{
+    text-align: center;
+    font-weight: lighter;
 }
 hr{
     margin: 15px 0px 15px 0px;
@@ -41,7 +45,10 @@ input[type=range]{
     width:100%;
     margin-top:10px;
 }
-#brightness, #contrast, #gamma, #shadowDilation, #laplacianDilation, #multiDirHillshade, #laplacian{
+#brightness, #contrast, #gamma, 
+#shadow_dilation, #laplacian_dilation, 
+#hillshade_dilation, #hillshade_color, #hillshade_color_power, 
+#laplacian, #slope{
     display:none; 
 }
 #mapControls > div{
@@ -58,6 +65,11 @@ input[type=range]{
 }
 #mapControls > div > div > div{
     padding-left: 5px;
+}
+#modesSelect{
+    width:100%;
+    padding: 3px;
+    margin-top: 5px;
 }
 #copyrights{
     margin:30px;
