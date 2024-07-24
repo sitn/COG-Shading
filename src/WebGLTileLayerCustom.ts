@@ -1,21 +1,35 @@
 import TileTextureCustom from "./TileTextureCustom.js"
 
-import WebGLTile from "./ol/layer/WebGLTile.js"
-import TileLayer, {Attributes, Uniforms} from "./ol/renderer/webgl/TileLayer.js"
+import WebGLTile, { SourceType } from "./ol/layer/WebGLTile.js"
+import {Attributes, Uniforms} from "./ol/renderer/webgl/TileLayer.js"
 import {getStringNumberEquivalent, newCompilationContext, uniformNameForVariable} from "./ol/expr/gpu.js"
 import { TileRepresentationOptions } from "./ol/webgl/BaseTileRepresentation.js"
 import { TileType } from "./ol/webgl/TileTexture.js"
+import WebGLTileLayerRenderer from "./ol/renderer/webgl/TileLayer.js"
+
+import WMTS from "./ol/source/WMTS.js"
+import { FrameState } from "./ol/Map.js"
+import ImageTile from "./ol/ImageTile.js"
 
 type Style = { vertexShader: any; fragmentShader: any; uniforms: any; paletteTextures: any }
 type StyleVariables = { variables: { [x: string]: any }; color: any[] }
-type TextureParams = {nbDirAzimuth : number, nbDirElevation : number, layout :  TextureLayout}
-type TextureLayout = [ {dataType:Uint32Array, bands:number, packed:boolean, type:string} ]
+type TextureParams = {
+    nbDirAzimuth : number, 
+    nbDirElevation : number, 
+    nbValuesInBand: number,
+    layout : TextureLayout}
+export type TextureLayout = {
+    ortho : WMTS,
+    data : [ {bands:number, packed:boolean, type:'hillshadeOcclusion'|'shadow'|'alpha'} ]
+}
 
-const float_precision_factor = 100_000
-const NB_VALUES_IN_BAND = 6;
+const floatPrecisionFactor = 100_000
 
-class WebGLTileLayerRendererCustom extends TileLayer {
+
+class WebGLTileLayerRendererCustom extends WebGLTileLayerRenderer {
     texturesLayout: TextureLayout
+    wmtsBuffer: CanvasRenderingContext2D | null = null
+    tileLayer : WebGLTileLayerCustom
     
     constructor(tileLayer: WebGLTileLayerCustom, parsedStyle: Style, cacheSize: any) {
       super(tileLayer, {
@@ -26,10 +40,66 @@ class WebGLTileLayerRendererCustom extends TileLayer {
         paletteTextures: parsedStyle.paletteTextures,
       });
       this.texturesLayout = tileLayer.textures.layout
+      this.tileLayer = tileLayer
     }
+
     createTileRepresentation(options: TileRepresentationOptions<TileType>) {
-        const sourceBandCount = this.texturesLayout.reduce((acc, item) => acc += item.bands * (item.packed ? 2 : 1), 0)
-        return new TileTextureCustom(options, this.texturesLayout, float_precision_factor, sourceBandCount);
+        if(this.wmtsBuffer == null){
+            if(options.helper.getCanvas().width != 1){ // TODO change that
+                const canvas = document.createElement("canvas");
+                canvas.width = 1.3*options.helper.getCanvas().width;
+                canvas.height = 1.3*options.helper.getCanvas().height;
+                this.wmtsBuffer = canvas.getContext("2d")!;
+                //document.body.appendChild(canvas)
+            }
+        }
+
+        return new TileTextureCustom(options, this.texturesLayout, floatPrecisionFactor, this.wmtsBuffer)
+    }
+
+    renderTile(
+        tileTexture: TileTextureCustom,
+        tileTransform: any,
+        frameState: FrameState,
+        renderExtent: any,
+        tileResolution: number,
+        tileSize: number[],
+        tileOrigin: number[],
+        tileExtent: any,
+        depth: number,
+        gutter: number,
+        alpha: number,
+      ) {
+        const viewResolution = this.frameState!.viewState.resolution 
+        const wmtsTileGrid = this.texturesLayout.ortho.getTileGrid()!
+        const wmtsResolutionBase =  wmtsTileGrid.getResolution(wmtsTileGrid.getZForResolution(this.frameState!.viewState.resolution))
+      
+        if(tileTexture.tile instanceof ImageTile){
+            if(this.wmtsBuffer != null){
+                if( wmtsTileGrid.getZForResolution(viewResolution) == wmtsTileGrid.getZForResolution(tileResolution)){
+                    const tile = tileTexture.tile as unknown as ImageTile
+                    const wmtsResolutionView = this.frameState!.viewState.resolution
+                    const renderCenter = [ (renderExtent[0] + renderExtent[2]) / 2, (renderExtent[1] + renderExtent[3]) / 2]
+                    const pixelCenter = [this.wmtsBuffer.canvas.width/2,  this.wmtsBuffer.canvas.height/2]
+                    const resRatio = wmtsResolutionBase/wmtsResolutionView
+                    const x0 = (tileExtent[0] - renderCenter[0])/tileResolution
+                    const y0 = (renderCenter[1] - tileExtent[3])/tileResolution
+                    this.wmtsBuffer.translate(pixelCenter[0],pixelCenter[1]);
+                    this.wmtsBuffer.scale(resRatio, resRatio)
+                    this.wmtsBuffer.drawImage(tile.getImage(), x0,y0)
+                    this.wmtsBuffer.scale(1/resRatio, 1/resRatio)
+                    this.wmtsBuffer.translate(-pixelCenter[0],-pixelCenter[1]);
+                }
+            }
+        }else{
+            const cogTileGrid = this.getLayer().getRenderSource().getTileGrid()!
+            const tileTextureCustom = tileTexture as TileTextureCustom
+            const orthoInput = parseFloat((document.getElementById("orthoInput") as HTMLInputElement).value)
+            if( orthoInput != 0 && cogTileGrid.getZForResolution(viewResolution) == cogTileGrid.getZForResolution(tileResolution)){
+                tileTextureCustom.update(frameState.viewState.resolution, tileExtent, renderExtent)
+            }
+            super.renderTile(tileTextureCustom, tileTransform, frameState, renderExtent, tileResolution, tileSize, tileOrigin, tileExtent, depth, gutter, alpha)
+        }
     }
 }
 
@@ -44,13 +114,22 @@ export default class WebGLTileLayerCustom extends WebGLTile {
     }
     
     createRenderer() : WebGLTileLayerRendererCustom {
-        const nbShadowBands =  this.textures.layout.filter(t => t.type == "shadow").reduce((acc, item) => acc += item.bands, 0)
-        const style = parseStyle(this['style_'], this.getSourceBandCount(), this.textures.layout.length, this.textures.nbDirAzimuth, this.textures.nbDirElevation, nbShadowBands)
+        const style = parseStyle(this['style_'], this.getSourceBandCount(), this.textures)
         return new WebGLTileLayerRendererCustom(this, style, this['cacheSize_']);
+    }
+
+    setSources(source: Array<SourceType>){
+        this['sources_'] = source;
+        this.changed()
+        
     }
 }
 
-function parseStyle(style: StyleVariables, bandCount:number, nbTextures:number, nbDirAzimuth:number, nbDirElevation:number, nbShadowBands:number) {
+function parseStyle(style: StyleVariables, bandCount:number, texturesParam:TextureParams) {
+    const nbTextures = /*texturesParam.layout.ortho*/ 1 + texturesParam.layout.data.length;
+    const elevationOcclusionTexture = 0 //texturesParam.layout.ortho //ElevationOcclusion texture is the first one after the ortho
+    const nbShadowBands =  texturesParam.layout.data.filter(t => t.type == "shadow").reduce((acc, item) => acc += item.bands, 0)
+
     const vertexShader = `#version 300 es
         in vec2 ${Attributes.TEXTURE_COORD};
         uniform mat4 ${Uniforms.TILE_TRANSFORM};
@@ -93,7 +172,7 @@ function parseStyle(style: StyleVariables, bandCount:number, nbTextures:number, 
 
     let shadowValueConditionInner = ""
     for(let i=0; i<nbShadowBands; i++){
-        shadowValueConditionInner += `if(band == ${i}u){ return texture(${Uniforms.TILE_TEXTURE_ARRAY}[${Math.floor(i/4)+1}], coord)[${i%4}];}\n`
+        shadowValueConditionInner += `if(band == ${i}u){ return texture(${Uniforms.TILE_TEXTURE_ARRAY}[${Math.floor(i/4)+elevationOcclusionTexture+1}], coord)[${i%4}];}\n`
     }
 
     const fragmentShader = `#version 300 es
@@ -116,11 +195,11 @@ function parseStyle(style: StyleVariables, bandCount:number, nbTextures:number, 
 
         float elevationValue(float xOffset, float yOffset){
             vec2 coord = v_textureCoord + vec2(xOffset/${Uniforms.TEXTURE_PIXEL_WIDTH}, yOffset/${Uniforms.TEXTURE_PIXEL_HEIGHT});
-            return float(texture(${Uniforms.TILE_TEXTURE_ARRAY}[0], coord)[0])/${float_precision_factor}.0;
+            return float(texture(${Uniforms.TILE_TEXTURE_ARRAY}[${elevationOcclusionTexture}], coord)[0])/${floatPrecisionFactor}.0;
         }
 
         float occlusion(){
-            return float(texture(${Uniforms.TILE_TEXTURE_ARRAY}[0], v_textureCoord)[1])/${float_precision_factor}.0;
+            return float(texture(${Uniforms.TILE_TEXTURE_ARRAY}[${elevationOcclusionTexture}], v_textureCoord)[1])/${floatPrecisionFactor}.0;
         }
 
         highp uint getShadowValue(uint band, float xOffset, float yOffset) {
@@ -129,9 +208,9 @@ function parseStyle(style: StyleVariables, bandCount:number, nbTextures:number, 
         }
 
         float shadowMap(float xOffset, float yOffset){
-            const float NB_DIRS = ${nbDirAzimuth}.0;
-            const float NB_ELEVATIONS = ${nbDirElevation}.0;
-            const float NB_VALUES_IN_BAND = ${NB_VALUES_IN_BAND}.0;
+            const float NB_DIRS = ${texturesParam.nbDirAzimuth}.0;
+            const float NB_ELEVATIONS = ${texturesParam.nbDirElevation}.0;
+            const float NB_VALUES_IN_BAND = ${texturesParam.nbValuesInBand}.0;
 
             uint direction_index = uint(mod(u_var_azimuth + 270.0, 360.0) * (NB_DIRS/360.0));
             uint bandMod = uint(mod(float(direction_index), NB_VALUES_IN_BAND));
@@ -234,6 +313,13 @@ function parseStyle(style: StyleVariables, bandCount:number, nbTextures:number, 
                 grey*pow((1.0-u_var_hillshade_color + hillshadePlus*u_var_hillshade_color), u_var_hillshade_color_power), 
                 grey*pow((1.0-u_var_hillshade_color + hillshadeMinus*u_var_hillshade_color), u_var_hillshade_color_power), 
                 1.0);
+
+            color = (1.0-u_var_ortho) * color + color * vec4(
+                float(texture(${Uniforms.TILE_TEXTURE_ARRAY}[6], vec2(v_textureCoord.x, v_textureCoord.y) )[0])/255.0,
+                float(texture(${Uniforms.TILE_TEXTURE_ARRAY}[6], vec2(v_textureCoord.x, v_textureCoord.y) )[1])/255.0,
+                float(texture(${Uniforms.TILE_TEXTURE_ARRAY}[6], vec2(v_textureCoord.x, v_textureCoord.y) )[2])/255.0,
+                1.0
+            ) * u_var_ortho;
             color *= ${Uniforms.TRANSITION_ALPHA} * float(elevationValue(0.0, 0.0) != 0.0);
         }`;
 

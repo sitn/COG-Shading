@@ -740,8 +740,6 @@ class GeoTIFFSource extends DataTile {
       tileSizes: commonRenderTileSizes,
     });
 
-    console.log(tileGrid)
-
     this.tileGrid = tileGrid;
     this.setTileSizes(commonSourceTileSizes);
 
@@ -763,8 +761,6 @@ class GeoTIFFSource extends DataTile {
       extent: toUserExtent(extent, this.projection),
       zoom: zoom,
     });
-
-    console.log(resolutions)
   }
 
   /**

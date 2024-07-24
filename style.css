@@ -16,6 +16,7 @@ h2{
 h3{
     text-align: center;
     font-weight: 400;
+    margin-bottom: 5px;
 }
 hr{
     margin: 15px 0px 15px 0px;
@@ -27,11 +28,17 @@ a{
 input[type=range]{
     width: 100%;
 }
+canvas{
+    border: 1px solid red;
+}
 #userDate{
     margin-bottom: 15px;
 }
 #map{
     flex-grow: 1;
+    /*display: inline-block;
+    height: 800px;
+    width: 800px;*/
 }
 #panelLeft{
     width: 200px;
@@ -46,7 +53,7 @@ input[type=range]{
 #brightness, #contrast, #gamma, 
 #shadow_dilation, #laplacian_dilation, 
 #hillshade_dilation, #hillshade_color, #hillshade_color_power, 
-#laplacian, #slope{
+#laplacian, #slope, #occlusion_power{
     display:none; 
 }
 #mapControls > div{
@@ -60,6 +67,10 @@ input[type=range]{
     width:100%;
     display: grid;
     grid-template-columns: auto 50px;
+}
+#mapControls #model div{
+    grid-template-columns: 30px auto;
+    padding: 4px;
 }
 #mapControls > div > div > div{
     padding-left: 5px;

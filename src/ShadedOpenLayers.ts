@@ -7,8 +7,17 @@ import { getCenter } from "./ol/extent.js"
 import proj4 from "proj4"
 import { getPosition } from "suncalc"
 import { Pixel } from "./ol/pixel"
+import { WMTSCapabilities } from "./ol/format"
+import WMTS, { optionsFromCapabilities } from "./ol/source/WMTS"
 
-type Maps = { dem: string; occlusion: string; shadowMap: string }
+type Maps = { 
+    dsm: string; 
+    occlusionDsm: string; 
+    dtm:string, 
+    occlusionDtm:string, 
+    shadowMap: string; 
+    ortho: {capabilitiesURL:string; layer:string} 
+}
 type SliderParams = [string, number, number, string]
 export type Sliders = { inputs: {[key: string]: SliderParams}, modes:any }
 
@@ -24,6 +33,9 @@ export default class ShadedOpenLayers{
     currentDate: Date = new Date()
     projection: string
     sliders: Sliders
+    tile : WebGLTileLayerCustom | null = null
+    sources : {DTM : GeoTIFF, DSM : GeoTIFF, Ortho : WMTS} | null = null
+    currentModel : 'DTM' | 'DSM' = 'DSM'
     
     constructor(maps: Maps, projection: string, extent: number[], sliders: Sliders, mapId="map"){
         this.maps = maps
@@ -33,8 +45,9 @@ export default class ShadedOpenLayers{
         this.sliders = sliders
     }
 
-    start(){
-        const {tile, map} = this.startOpenLayers(this.mapId)
+    async start(){
+        const {tile, map} = await this.startOpenLayers(this.mapId)
+        this.tile = tile
         this.createMapControls((id: string, value: number) => tile.updateStyleVariables({[id]:value}))
         map.on('pointermove', e => this.printPixel(e.pixel, tile, map))
         this.setUI()
@@ -98,34 +111,60 @@ export default class ShadedOpenLayers{
         }
     }
 
-    startOpenLayers(mapElementId: string){
+    async startOpenLayers(mapElementId: string){
         const shadingVariables = new Map<string, number>();
         Object.keys(this.sliders).forEach(sliderName => shadingVariables.set(sliderName, 0))
     
-        const source = new GeoTIFF({
+        const geoTiffSourceDSM = new GeoTIFF({
             normalize: false,
             interpolate: false,
-            sources: [{url:this.maps.dem}, {url:this.maps.occlusion}, {url:this.maps.shadowMap}]
+            sources: [{url:this.maps.dsm}, {url:this.maps.occlusionDsm}, {url:this.maps.shadowMap}]
         });
 
+        const geoTiffSourceDTM = new GeoTIFF({
+            normalize: false,
+            interpolate: false,
+            sources: [{url:this.maps.dtm}, {url:this.maps.occlusionDtm}, {url:this.maps.shadowMap}]
+        });
+
+        const wmtsOrtho = new WMTS(optionsFromCapabilities(new WMTSCapabilities().read(await fetch(this.maps.ortho.capabilitiesURL).then(r => r.text())), {
+            layer: this.maps.ortho.layer,
+            matrixSet: this.projection
+        })!)
+
+        this.sources = {
+            DTM : geoTiffSourceDTM,
+            DSM : geoTiffSourceDSM,
+            Ortho : wmtsOrtho
+        }
+
         const tile = new WebGLTileLayerCustom({
-                source: source,
+                sources: [geoTiffSourceDSM, wmtsOrtho],
                 style: {
                     variables: shadingVariables,
-                    color: [`(`+`${[`multiHillshade`, `clamp(occlusion()+1.0-u_var_occlusion, 0.0, 1.0)`, `clamp(blurredShadowMap()+1.0-u_var_shadow, 0.0, 1.0)`].join('*')}`+`)`]
+                    color: [`(`+`${[
+                        `multiHillshade`, 
+                        `clamp(pow(occlusion(),u_var_occlusion_power)+1.0-u_var_occlusion, 0.0, 1.0)`, 
+                        `clamp(blurredShadowMap()+1.0-u_var_shadow, 0.0, 1.0)
+                    `].join('*')}`+`)`]
                 },
                 textures :{
                     nbDirAzimuth : 90,
                     nbDirElevation : 32,
-                    layout :  [   
-                        {dataType:Uint32Array, bands:2, packed:false, type:"hillshadeOcclusion"},
-                        {dataType:Uint32Array, bands:4, packed:true,  type:"shadow"},
-                        {dataType:Uint32Array, bands:4, packed:true,  type:"shadow"},
-                        {dataType:Uint32Array, bands:4, packed:true,  type:"shadow"},
-                        {dataType:Uint32Array, bands:3, packed:true,  type:"shadow"},
-                        {dataType:Uint32Array, bands:1, packed:false, type:"alpha"},
-                    ],
-                }
+                    nbValuesInBand : 6,
+                    layout :  {
+                        ortho : wmtsOrtho,
+                        data : [
+                            // Packed = this band is packed by 2 in the file, should be packed by 4 in the texture
+                            {bands:2, packed:false, type:"hillshadeOcclusion"},
+                            {bands:4, packed:true,  type:"shadow"},
+                            {bands:4, packed:true,  type:"shadow"},
+                            {bands:4, packed:true,  type:"shadow"},
+                            {bands:3, packed:true,  type:"shadow"},
+                            {bands:1, packed:false, type:"alpha"},
+                        ]
+                    }
+                },
             }
         )
     
@@ -139,7 +178,22 @@ export default class ShadedOpenLayers{
                 zoom: 1,
             })
         });
+
         return {tile, map}
+    }
+
+    setModel(type : string){
+        if(type == "DTM"){
+            this.currentModel = 'DTM'
+            this.tile?.setSources([this.sources?.DTM!, this.sources?.Ortho!]);
+            (document.getElementById("shadowInput") as HTMLInputElement).value = "0"
+            document.getElementById("shadowInput")?.dispatchEvent(new InputEvent("input"))
+        }else if(type == "DSM"){
+            this.currentModel = 'DSM'
+            this.tile?.setSources([this.sources?.DSM!, this.sources?.Ortho!])
+        }else{
+            console.error("Invalid model")
+        }
     }
 
     createMapControls(callback: (id: string, value: number) => void){
@@ -190,15 +244,16 @@ export default class ShadedOpenLayers{
 
     setUI(mode: string | null = null){
         const defaultMode = Object.keys(this.sliders.modes)[0]
-        if(mode == null){
-            mode = defaultMode
-        }
+        mode = mode ?? defaultMode
         Object.keys(this.sliders.inputs).forEach(key => {
-            const currentMode = Object.keys(this.sliders.modes[mode]).includes(key) ? mode : defaultMode
-            const value = this.sliders.modes[currentMode][key].toString();
-            (document.getElementById(key+"Input")! as HTMLInputElement).value = value
-            document.getElementById(key+"Input")!.dispatchEvent(new Event("input"))
-            document.getElementById(key+"Value")!.innerHTML = value
+            if(key !='shadow' || this.currentModel != 'DTM'){
+                const currentMode = Object.keys(this.sliders.modes[mode]).includes(key) ? mode : defaultMode
+                const value = this.sliders.modes[currentMode][key].toString();
+                (document.getElementById(key+"Input")! as HTMLInputElement).value = value
+                document.getElementById(key+"Input")!.dispatchEvent(new Event("input"))
+                document.getElementById(key+"Value")!.innerHTML = value
+            }
+          
         })
     }
 }
