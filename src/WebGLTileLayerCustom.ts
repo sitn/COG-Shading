@@ -53,7 +53,6 @@ class WebGLTileLayerRendererCustom extends WebGLTileLayerRenderer {
                 //document.body.appendChild(canvas)
             }
         }
-
         return new TileTextureCustom(options, this.texturesLayout, floatPrecisionFactor, this.wmtsBuffer)
     }
 
@@ -121,13 +120,12 @@ export default class WebGLTileLayerCustom extends WebGLTile {
     setSources(source: Array<SourceType>){
         this['sources_'] = source;
         this.changed()
-        
     }
 }
 
 function parseStyle(style: StyleVariables, bandCount:number, texturesParam:TextureParams) {
-    const nbTextures = /*texturesParam.layout.ortho*/ 1 + texturesParam.layout.data.length;
-    const elevationOcclusionTexture = 0 //texturesParam.layout.ortho //ElevationOcclusion texture is the first one after the ortho
+    const nbTextures = 1 + texturesParam.layout.data.length;
+    const elevationOcclusionTexture = 0 //ElevationOcclusion texture is the first one after the ortho
     const nbShadowBands =  texturesParam.layout.data.filter(t => t.type == "shadow").reduce((acc, item) => acc += item.bands, 0)
 
     const vertexShader = `#version 300 es

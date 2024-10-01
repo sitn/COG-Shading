@@ -114,9 +114,6 @@ proj4.defs(projection, "+proj=somerc +lat_0=46.95240555555556 +lon_0=7.439583333
 register(proj4);
 
 const shadedOpenLayers = new ShadedOpenLayers({
-    /*dem : 'https://sitn.ne.ch/services/cog/shading/sitg/mns2023_10cm_sitg_cog.tif',
-    occlusion : 'https://sitn.ne.ch/services/cog/shading/sitg/ao_mns2023_10cm_sitg_highres_cog.tif',
-    shadowMap : 'https://sitn.ne.ch/services/cog/shading/sitg/sm_mns2023_10cm_sitg_cog.tif',*/
     dsm :          'https://sitn.ne.ch/services/cog/shading/ne/mns2022_10cm_cog.tif',
     occlusionDsm : 'https://sitn.ne.ch/services/cog/shading/ne/ao_mns2022_10cm_cog.tif',
     shadowMap :    'https://sitn.ne.ch/services/cog/shading/ne/sm_mns2022_10cm_cog.tif',
@@ -132,6 +129,7 @@ document.body.onload = () => {
     shadedOpenLayers.start()
     document.getElementById("userDate")!.onchange = () => shadedOpenLayers.onUserDateChange()
     document.getElementById("playStopButton")!.onclick = () => shadedOpenLayers.toggleAnimation()
+    document.getElementById("resetButton")!.onclick = () => shadedOpenLayers.setUI()
 
     const select = document.getElementById("modesSelect") as HTMLSelectElement
     select.addEventListener("change", () => shadedOpenLayers.setUI(select.value))

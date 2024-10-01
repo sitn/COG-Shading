@@ -97,10 +97,9 @@ export default class ShadedOpenLayers{
         const canvas = document.getElementsByClassName("ol-layer")[0]
         const pixelData = tile.getData(pixel)
         if(canvas != undefined && pixelData != null){
-            const coordinates = map.getCoordinateFromPixel(pixel)
-            const pixelDataBuffer = pixelData as Uint8ClampedArray | Uint8Array | Float32Array
-            document.getElementById("cursorPosition")!.innerHTML = 
-                `X: ${coordinates[0].toFixed(2)} <br> Y: ${coordinates[1].toFixed(2)} <br> Z: ${pixelDataBuffer[0].toFixed(2)}`
+            const coord = map.getCoordinateFromPixel(pixel)
+            const pixData = pixelData as Uint8ClampedArray | Uint8Array | Float32Array
+            document.getElementById("cursorPosition")!.innerHTML = `X: ${coord[0].toFixed(2)} <br> Y: ${coord[1].toFixed(2)} <br> Z: ${pixData[0].toFixed(2)}`
             // To print a more advanced debug in the console:
             /*const gl = canvas.getContext('webgl2')
             if(gl){
@@ -254,6 +253,7 @@ export default class ShadedOpenLayers{
                 document.getElementById(key+"Value")!.innerHTML = value
             }
           
-        })
+        });
+        (document.getElementById("modesSelect")! as HTMLInputElement).value = mode
     }
 }
