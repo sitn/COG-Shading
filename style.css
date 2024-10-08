@@ -35,6 +35,9 @@ button{
     width: 100%;
     padding: 5px;
 }
+select{
+    padding:3px;
+}
 #userDate{
     margin-bottom: 15px;
 }
@@ -81,7 +84,6 @@ button{
 }
 #modesSelect{
     width:100%;
-    padding: 3px;
     margin-top: 5px;
 }
 #copyrights{
@@ -91,4 +93,10 @@ button{
 #copyrights img{
     width: 20px;
     padding: 5px;
+}
+#wmtsSelect select{
+    width: 100%;
+}
+#wmtsSelect{
+    margin-bottom: 20px;
 }

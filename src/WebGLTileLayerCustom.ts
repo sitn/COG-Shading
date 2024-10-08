@@ -47,8 +47,8 @@ class WebGLTileLayerRendererCustom extends WebGLTileLayerRenderer {
         if(this.wmtsBuffer == null){
             if(options.helper.getCanvas().width != 1){ // TODO change that
                 const canvas = document.createElement("canvas");
-                canvas.width = 1.3*options.helper.getCanvas().width;
-                canvas.height = 1.3*options.helper.getCanvas().height;
+                canvas.width = 1.3*options.helper.getCanvas().width
+                canvas.height = 1.3*options.helper.getCanvas().height
                 this.wmtsBuffer = canvas.getContext("2d")!;
                 //document.body.appendChild(canvas)
             }
@@ -85,6 +85,8 @@ class WebGLTileLayerRendererCustom extends WebGLTileLayerRenderer {
                     const y0 = (renderCenter[1] - tileExtent[3])/tileResolution
                     this.wmtsBuffer.translate(pixelCenter[0],pixelCenter[1]);
                     this.wmtsBuffer.scale(resRatio, resRatio)
+                    this.wmtsBuffer.fillStyle = "white";
+                    this.wmtsBuffer.fillRect(x0, y0, tile.getImage().width, tile.getImage().height)
                     this.wmtsBuffer.drawImage(tile.getImage(), x0,y0)
                     this.wmtsBuffer.scale(1/resRatio, 1/resRatio)
                     this.wmtsBuffer.translate(-pixelCenter[0],-pixelCenter[1]);
@@ -119,7 +121,7 @@ export default class WebGLTileLayerCustom extends WebGLTile {
 
     setSources(source: Array<SourceType>){
         this['sources_'] = source;
-        this.changed()
+        this['handleSourcePropertyChange_']()
     }
 }
 

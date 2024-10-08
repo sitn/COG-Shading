@@ -22,7 +22,7 @@ const sliders: Sliders = {
         hillshade_color    : ["hillshade_color", 0, 1, ''],
         hillshade_color_power : ["hillshade_color_power", 0, 10, ''],
         slope           : ["slope", 0, 1, ''],
-        ortho           : ["Orthophoto", 0, 1, ""]
+        ortho           : ["Couche WMTS", 0, 1, ""]
     },
     modes: {
         "Réaliste": {
@@ -107,7 +107,6 @@ const sliders: Sliders = {
     }
 }
 
-//const extent = [2485250,1109500, 2513250,1136000] //SITG
 const extent = [2523181.8, 1181909.8, 2573700, 1224236.6] //SITN
 const projection = "EPSG:2056"
 proj4.defs(projection, "+proj=somerc +lat_0=46.95240555555556 +lon_0=7.439583333333333 +k_0=1 +x_0=2600000 +y_0=1200000 +ellps=bessel +towgs84=674.374,15.056,405.346,0,0,0,0 +units=m +no_defs");
@@ -115,9 +114,9 @@ register(proj4);
 
 const shadedOpenLayers = new ShadedOpenLayers({
     dsm :          'https://sitn.ne.ch/services/cog/shading/ne/mns2022_10cm_cog.tif',
+    dtm :          'https://sitn.ne.ch/services/cog/shading/ne/mnt2022_10cm_cog.tif',
     occlusionDsm : 'https://sitn.ne.ch/services/cog/shading/ne/ao_mns2022_10cm_cog.tif',
     shadowMap :    'https://sitn.ne.ch/services/cog/shading/ne/sm_mns2022_10cm_cog.tif',
-    dtm :          'https://sitn.ne.ch/services/cog/shading/ne/mnt2022_10cm_cog.tif',
     occlusionDtm : 'https://sitn.ne.ch/services/cog/shading/ne/ao_mnt2022_10cm_cog.tif',
     ortho: {
         capabilitiesURL : "https://sitn.ne.ch/services/wmts?SERVICE=WMTS&REQUEST=GetCapabilities",

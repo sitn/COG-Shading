@@ -12,8 +12,8 @@ import WMTS, { optionsFromCapabilities } from "./ol/source/WMTS"
 
 type Maps = { 
     dsm: string; 
-    occlusionDsm: string; 
     dtm:string, 
+    occlusionDsm: string;
     occlusionDtm:string, 
     shadowMap: string; 
     ortho: {capabilitiesURL:string; layer:string} 
@@ -113,7 +113,8 @@ export default class ShadedOpenLayers{
     async startOpenLayers(mapElementId: string){
         const shadingVariables = new Map<string, number>();
         Object.keys(this.sliders).forEach(sliderName => shadingVariables.set(sliderName, 0))
-    
+
+
         const geoTiffSourceDSM = new GeoTIFF({
             normalize: false,
             interpolate: false,
@@ -126,7 +127,7 @@ export default class ShadedOpenLayers{
             sources: [{url:this.maps.dtm}, {url:this.maps.occlusionDtm}, {url:this.maps.shadowMap}]
         });
 
-        const wmtsOrtho = new WMTS(optionsFromCapabilities(new WMTSCapabilities().read(await fetch(this.maps.ortho.capabilitiesURL).then(r => r.text())), {
+        const wmts = new WMTS(optionsFromCapabilities(new WMTSCapabilities().read(await fetch(this.maps.ortho.capabilitiesURL).then(r => r.text())), {
             layer: this.maps.ortho.layer,
             matrixSet: this.projection
         })!)
@@ -134,11 +135,11 @@ export default class ShadedOpenLayers{
         this.sources = {
             DTM : geoTiffSourceDTM,
             DSM : geoTiffSourceDSM,
-            Ortho : wmtsOrtho
+            Ortho : wmts
         }
 
         const tile = new WebGLTileLayerCustom({
-                sources: [geoTiffSourceDSM, wmtsOrtho],
+                sources: [geoTiffSourceDSM, wmts],
                 style: {
                     variables: shadingVariables,
                     color: [`(`+`${[
@@ -152,7 +153,7 @@ export default class ShadedOpenLayers{
                     nbDirElevation : 32,
                     nbValuesInBand : 6,
                     layout :  {
-                        ortho : wmtsOrtho,
+                        ortho : wmts,
                         data : [
                             // Packed = this band is packed by 2 in the file, should be packed by 4 in the texture
                             {bands:2, packed:false, type:"hillshadeOcclusion"},
@@ -166,7 +167,18 @@ export default class ShadedOpenLayers{
                 },
             }
         )
-    
+        
+        const wmtsSelect = document.createElement('select')
+        const wmtsLayers = new WMTSCapabilities().read(await fetch(this.maps.ortho.capabilitiesURL).then(r => r.text()))
+        wmtsLayers.Contents.Layer.forEach((l: { Identifier: string; Title: string }) => {
+            const option = document.createElement("option")
+            option.value = l.Identifier
+            option.innerHTML = l.Title
+            wmtsSelect.appendChild(option)
+        })
+        wmtsSelect.value = this.maps.ortho.layer
+        document.getElementById("wmtsSelect")?.appendChild(wmtsSelect)
+        
         const map = new OlMap({
             target: mapElementId,
             layers: [tile],
@@ -177,6 +189,17 @@ export default class ShadedOpenLayers{
                 zoom: 1,
             })
         });
+
+        wmtsSelect.addEventListener("change", async () => {
+            const wmts = new WMTS(optionsFromCapabilities(new WMTSCapabilities().read(await fetch(this.maps.ortho.capabilitiesURL).then(r => r.text())), {
+                layer: wmtsSelect.value,
+                matrixSet: this.projection
+            })!)
+            tile.setSources([this.currentModel == 'DSM' ? geoTiffSourceDSM : geoTiffSourceDTM, wmts])
+            map.removeLayer(tile)
+            map.addLayer(tile)
+            this.sources!.Ortho = wmts
+        })
 
         return {tile, map}
     }
