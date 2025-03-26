@@ -1,9 +1,10 @@
-import DataTile from "./ol/DataTile.js";
-import ImageTile from "./ol/ImageTile.js";
-import { TileRepresentationOptions } from "./ol/webgl/BaseTileRepresentation.js";
-import TileTexture, { TileType } from "./ol/webgl/TileTexture.js"
+import TileTexture, { TileType } from "ol/webgl/TileTexture.js"
+import { Extent } from "ol/extent.js";
+import { TileRepresentationOptions } from "ol/webgl/BaseTileRepresentation.js";
+
 import {TextureLayout} from "./WebGLTileLayerCustom"
-import { Extent } from "./ol/extent.js";
+import DataTile from "ol/DataTile.js";
+import ImageTile from "ol/ImageTile.js";
 
 /*function imageToUint8Array(image: HTMLCanvasElement | HTMLImageElement | HTMLVideoElement) {
   const canvas = document.createElement("canvas");
@@ -154,7 +155,7 @@ export default class TileTextureCustom extends TileTexture {
       }
      
     }else {
-      console.error("Only ImageTile / DataTiles are supported")
+      console.error(`Only ImageTile / DataTiles are supported : ${this.tile.constructor.name}`)
     }
     this.setReady();
   }

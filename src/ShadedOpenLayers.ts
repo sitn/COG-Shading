@@ -1,14 +1,15 @@
-import WebGLTileLayerCustom from "./WebGLTileLayerCustom.ts"
-import GeoTIFF from "./ol/source/GeoTIFF.js"
-import OlMap from "./ol/Map.js"
-import View from "./ol/View.js"
-import Projection from "./ol/proj/Projection.js"
-import { getCenter } from "./ol/extent.js"
+import Projection from "ol/proj/Projection.js"
+import { getCenter } from "ol/extent.js"
 import proj4 from "proj4"
 import { getPosition } from "suncalc"
-import { Pixel } from "./ol/pixel"
-import { WMTSCapabilities } from "./ol/format"
-import WMTS, { optionsFromCapabilities } from "./ol/source/WMTS"
+import { Pixel } from "ol/pixel"
+import { WMTSCapabilities } from "ol/format"
+import GeoTIFF from "ol/source/GeoTIFF.js"
+import OlMap from "ol/Map.js"
+import View from "ol/View.js"
+import WMTS, { optionsFromCapabilities } from "ol/source/WMTS"
+
+import WebGLTileLayerCustom from "./WebGLTileLayerCustom.ts"
 
 type Maps = { 
     dsm: string; 

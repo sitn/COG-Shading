@@ -1,54 +1,106 @@
-import TileTextureCustom from "./TileTextureCustom.js"
+import WMTS from "ol/source/WMTS.js"
+import { FrameState } from "ol/Map.js"
+import ImageTile from "ol/ImageTile.js"
+import { getStringNumberEquivalent, newCompilationContext, uniformNameForVariable } from "ol/expr/gpu.js"
+import { TileRepresentationOptions } from "ol/webgl/BaseTileRepresentation.js"
+import { TileType } from "ol/webgl/TileTexture.js"
+import WebGLTile, { SourceType } from "ol/layer/WebGLTile.js"
+import { Attributes, Uniforms } from "ol/renderer/webgl/TileLayer.js"
+import WebGLLayerRenderer from "ol/renderer/webgl/Layer.js"
+import WebGLTileLayerRenderer from "ol/renderer/webgl/TileLayer.js"
 
-import WebGLTile, { SourceType } from "./ol/layer/WebGLTile.js"
-import {Attributes, Uniforms} from "./ol/renderer/webgl/TileLayer.js"
-import {getStringNumberEquivalent, newCompilationContext, uniformNameForVariable} from "./ol/expr/gpu.js"
-import { TileRepresentationOptions } from "./ol/webgl/BaseTileRepresentation.js"
-import { TileType } from "./ol/webgl/TileTexture.js"
-import WebGLTileLayerRenderer from "./ol/renderer/webgl/TileLayer.js"
-
-import WMTS from "./ol/source/WMTS.js"
-import { FrameState } from "./ol/Map.js"
-import ImageTile from "./ol/ImageTile.js"
+import TileTextureCustom from "./TileTextureCustom.ts"
+import WebGLHelper from "./Helper.js"
+import WebGLHelperOl from "ol/webgl/Helper.js"
 
 type Style = { vertexShader: any; fragmentShader: any; uniforms: any; paletteTextures: any }
 type StyleVariables = { variables: { [x: string]: any }; color: any[] }
 type TextureParams = {
-    nbDirAzimuth : number, 
-    nbDirElevation : number, 
+    nbDirAzimuth: number,
+    nbDirElevation: number,
     nbValuesInBand: number,
-    layout : TextureLayout}
+    layout: TextureLayout
+}
 export type TextureLayout = {
-    ortho : WMTS,
-    data : [ {bands:number, packed:boolean, type:'hillshadeOcclusion'|'shadow'|'alpha'} ]
+    ortho: WMTS,
+    data: [{ bands: number, packed: boolean, type: 'hillshadeOcclusion' | 'shadow' | 'alpha' }]
 }
 
 const floatPrecisionFactor = 100_000
 
-
 class WebGLTileLayerRendererCustom extends WebGLTileLayerRenderer {
     texturesLayout: TextureLayout
     wmtsBuffer: CanvasRenderingContext2D | null = null
-    tileLayer : WebGLTileLayerCustom
-    
+    tileLayer: WebGLTileLayerCustom
+
     constructor(tileLayer: WebGLTileLayerCustom, parsedStyle: Style, cacheSize: any) {
-      super(tileLayer, {
-        vertexShader: parsedStyle.vertexShader,
-        fragmentShader: parsedStyle.fragmentShader,
-        uniforms: parsedStyle.uniforms,
-        cacheSize: cacheSize,
-        paletteTextures: parsedStyle.paletteTextures,
-      });
-      this.texturesLayout = tileLayer.textures.layout
-      this.tileLayer = tileLayer
+        super(tileLayer, {
+            vertexShader: parsedStyle.vertexShader,
+            fragmentShader: parsedStyle.fragmentShader,
+            uniforms: parsedStyle.uniforms,
+            cacheSize: cacheSize,
+            paletteTextures: parsedStyle.paletteTextures,
+        });
+
+        this.prepareFrame = frameState => {
+            if (this.getLayer().getRenderSource()) {
+                let incrementGroup = true;
+                let groupNumber = -1;
+                let className;
+                for (let i = 0, ii = frameState.layerStatesArray.length; i < ii; i++) {
+                    const layer = frameState.layerStatesArray[i].layer;
+                    const renderer = layer.getRenderer();
+                    if (!(renderer instanceof WebGLLayerRenderer)) {
+                        incrementGroup = true;
+                        continue;
+                    }
+                    const layerClassName = layer.getClassName();
+                    if (incrementGroup || layerClassName !== className) {
+                        groupNumber += 1;
+                        incrementGroup = false;
+                    }
+                    className = layerClassName;
+                    if (renderer === this) {
+                        break;
+                    }
+                }
+
+                const canvasCacheKey = 'map/' + frameState.mapId + '/group/' + groupNumber;
+
+                if (
+                    !this.helper ||
+                    !this.helper.canvasCacheKeyMatches(canvasCacheKey) ||
+                    this.helper.needsToBeRecreated()
+                ) {
+                    this.removeHelper();
+
+                    this.helper = new WebGLHelper({
+                        postProcesses: this['postProcesses_'],
+                        uniforms: this['uniforms_'],
+                        canvasCacheKey: canvasCacheKey,
+                    }) as unknown as WebGLHelperOl;
+
+                    if (className) {
+                        this.helper.getCanvas().className = className;
+                    }
+
+                    this.afterHelperCreated();
+                }
+            }
+            return this.prepareFrameInternal(frameState);
+        }
+
+        this.texturesLayout = tileLayer.textures.layout
+        this.tileLayer = tileLayer
     }
 
+
     createTileRepresentation(options: TileRepresentationOptions<TileType>) {
-        if(this.wmtsBuffer == null){
-            if(options.helper.getCanvas().width != 1){ // TODO change that
+        if (this.wmtsBuffer == null) {
+            if (options.helper.getCanvas().width != 1) { // TODO change that
                 const canvas = document.createElement("canvas");
-                canvas.width = 1.3*options.helper.getCanvas().width
-                canvas.height = 1.3*options.helper.getCanvas().height
+                canvas.width = 1.3 * options.helper.getCanvas().width
+                canvas.height = 1.3 * options.helper.getCanvas().height
                 this.wmtsBuffer = canvas.getContext("2d")!;
                 //document.body.appendChild(canvas)
             }
@@ -68,35 +120,35 @@ class WebGLTileLayerRendererCustom extends WebGLTileLayerRenderer {
         depth: number,
         gutter: number,
         alpha: number,
-      ) {
-        const viewResolution = this.frameState!.viewState.resolution 
+    ) {
+        const viewResolution = this.frameState!.viewState.resolution
         const wmtsTileGrid = this.texturesLayout.ortho.getTileGrid()!
-        const wmtsResolutionBase =  wmtsTileGrid.getResolution(wmtsTileGrid.getZForResolution(this.frameState!.viewState.resolution))
-      
-        if(tileTexture.tile instanceof ImageTile){
-            if(this.wmtsBuffer != null){
-                if( wmtsTileGrid.getZForResolution(viewResolution) == wmtsTileGrid.getZForResolution(tileResolution)){
+        const wmtsResolutionBase = wmtsTileGrid.getResolution(wmtsTileGrid.getZForResolution(this.frameState!.viewState.resolution))
+
+        if (tileTexture.tile instanceof ImageTile) {
+            if (this.wmtsBuffer != null) {
+                if (wmtsTileGrid.getZForResolution(viewResolution) == wmtsTileGrid.getZForResolution(tileResolution)) {
                     const tile = tileTexture.tile as unknown as ImageTile
                     const wmtsResolutionView = this.frameState!.viewState.resolution
-                    const renderCenter = [ (renderExtent[0] + renderExtent[2]) / 2, (renderExtent[1] + renderExtent[3]) / 2]
-                    const pixelCenter = [this.wmtsBuffer.canvas.width/2,  this.wmtsBuffer.canvas.height/2]
-                    const resRatio = wmtsResolutionBase/wmtsResolutionView
-                    const x0 = (tileExtent[0] - renderCenter[0])/tileResolution
-                    const y0 = (renderCenter[1] - tileExtent[3])/tileResolution
-                    this.wmtsBuffer.translate(pixelCenter[0],pixelCenter[1]);
+                    const renderCenter = [(renderExtent[0] + renderExtent[2]) / 2, (renderExtent[1] + renderExtent[3]) / 2]
+                    const pixelCenter = [this.wmtsBuffer.canvas.width / 2, this.wmtsBuffer.canvas.height / 2]
+                    const resRatio = wmtsResolutionBase / wmtsResolutionView
+                    const x0 = (tileExtent[0] - renderCenter[0]) / tileResolution
+                    const y0 = (renderCenter[1] - tileExtent[3]) / tileResolution
+                    this.wmtsBuffer.translate(pixelCenter[0], pixelCenter[1]);
                     this.wmtsBuffer.scale(resRatio, resRatio)
                     this.wmtsBuffer.fillStyle = "white";
                     this.wmtsBuffer.fillRect(x0, y0, tile.getImage().width, tile.getImage().height)
-                    this.wmtsBuffer.drawImage(tile.getImage(), x0,y0)
-                    this.wmtsBuffer.scale(1/resRatio, 1/resRatio)
-                    this.wmtsBuffer.translate(-pixelCenter[0],-pixelCenter[1]);
+                    this.wmtsBuffer.drawImage(tile.getImage(), x0, y0)
+                    this.wmtsBuffer.scale(1 / resRatio, 1 / resRatio)
+                    this.wmtsBuffer.translate(-pixelCenter[0], -pixelCenter[1]);
                 }
             }
-        }else{
+        } else {
             const cogTileGrid = this.getLayer().getRenderSource().getTileGrid()!
             const tileTextureCustom = tileTexture as TileTextureCustom
             const orthoInput = parseFloat((document.getElementById("orthoInput") as HTMLInputElement).value)
-            if( orthoInput != 0 && cogTileGrid.getZForResolution(viewResolution) == cogTileGrid.getZForResolution(tileResolution)){
+            if (orthoInput != 0 && cogTileGrid.getZForResolution(viewResolution) == cogTileGrid.getZForResolution(tileResolution)) {
                 tileTextureCustom.update(frameState.viewState.resolution, tileExtent, renderExtent)
             }
             super.renderTile(tileTextureCustom, tileTransform, frameState, renderExtent, tileResolution, tileSize, tileOrigin, tileExtent, depth, gutter, alpha)
@@ -108,27 +160,27 @@ export default class WebGLTileLayerCustom extends WebGLTile {
     textures: TextureParams
     getSourceBandCount: any
 
-    constructor(options : any) { // TODO Define proper type
+    constructor(options: any) { // TODO Define proper type
         super(options)
         this.textures = options.textures
         this.getSourceBandCount = this['getSourceBandCount_'] // TODO Hack
     }
-    
-    createRenderer() : WebGLTileLayerRendererCustom {
+
+    createRenderer(): WebGLTileLayerRendererCustom {
         const style = parseStyle(this['style_'], this.getSourceBandCount(), this.textures)
         return new WebGLTileLayerRendererCustom(this, style, this['cacheSize_']);
     }
 
-    setSources(source: Array<SourceType>){
+    setSources(source: Array<SourceType>) {
         this['sources_'] = source;
         this['handleSourcePropertyChange_']()
     }
 }
 
-function parseStyle(style: StyleVariables, bandCount:number, texturesParam:TextureParams) {
+function parseStyle(style: StyleVariables, bandCount: number, texturesParam: TextureParams) {
     const nbTextures = 1 + texturesParam.layout.data.length;
     const elevationOcclusionTexture = 0 //ElevationOcclusion texture is the first one after the ortho
-    const nbShadowBands =  texturesParam.layout.data.filter(t => t.type == "shadow").reduce((acc, item) => acc += item.bands, 0)
+    const nbShadowBands = texturesParam.layout.data.filter(t => t.type == "shadow").reduce((acc, item) => acc += item.bands, 0)
 
     const vertexShader = `#version 300 es
         in vec2 ${Attributes.TEXTURE_COORD};
@@ -158,7 +210,7 @@ function parseStyle(style: StyleVariables, bandCount:number, texturesParam:Textu
         style: style,
     };
 
-    const uniforms : {[key: string]: () => number} = {};
+    const uniforms: { [key: string]: () => number } = {};
     const variablesNames = Object.keys(style.variables);
     for (let i = 0; i < variablesNames.length; ++i) {
         uniforms[uniformNameForVariable(variablesNames[i])] = () => {
@@ -171,8 +223,8 @@ function parseStyle(style: StyleVariables, bandCount:number, texturesParam:Textu
     }
 
     let shadowValueConditionInner = ""
-    for(let i=0; i<nbShadowBands; i++){
-        shadowValueConditionInner += `if(band == ${i}u){ return texture(${Uniforms.TILE_TEXTURE_ARRAY}[${Math.floor(i/4)+elevationOcclusionTexture+1}], coord)[${i%4}];}\n`
+    for (let i = 0; i < nbShadowBands; i++) {
+        shadowValueConditionInner += `if(band == ${i}u){ return texture(${Uniforms.TILE_TEXTURE_ARRAY}[${Math.floor(i / 4) + elevationOcclusionTexture + 1}], coord)[${i % 4}];}\n`
     }
 
     const fragmentShader = `#version 300 es
@@ -324,7 +376,7 @@ function parseStyle(style: StyleVariables, bandCount:number, texturesParam:Textu
         }`;
 
     console.log(fragmentShader)
-    return {vertexShader, fragmentShader, uniforms, paletteTextures: context.paletteTextures};
+    return { vertexShader, fragmentShader, uniforms, paletteTextures: context.paletteTextures };
 }
 
 /*

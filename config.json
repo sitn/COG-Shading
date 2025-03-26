@@ -1,0 +1,172 @@
+{
+    "extent" : [2523181.8, 1181909.8, 2573700, 1224236.6],
+    "projection" : {
+        "code" : "EPSG:2056",
+        "def" : "+proj=somerc +lat_0=46.95240555555556 +lon_0=7.439583333333333 +k_0=1 +x_0=2600000 +y_0=1200000 +ellps=bessel +towgs84=674.374,15.056,405.346,0,0,0,0 +units=m +no_defs"
+    },
+    "WMTS" : {
+        "capabilities" : "https://sitn.ne.ch/services/wmts?SERVICE=WMTS&REQUEST=GetCapabilities",
+        "defaultLayer" : "ortho2023"
+    },
+    "data":{
+        "2001" : {
+            "DTM" : {
+                "base" : "https://sitn.ne.ch/geodata/pointclouds/Aeriallidar/Lidar2001/05_Grid/mnt/1m/sitn_lidar2001_mnt_1m.cog.tif",
+                "ao" : "",
+                "sm" : ""
+            },
+            "DSM" : {
+                "base" : "https://sitn.ne.ch/geodata/pointclouds/Aeriallidar/Lidar2001/05_Grid/mns/1m/sitn_lidar2001_mns_1m.cog.tif",
+                "ao" : "https://sitn.ne.ch/geodata/pointclouds/Aeriallidar/Lidar2001/05_Grid/mns/1m/sitn_lidar2001_mns_1m_ao.cog.tif",
+                "sm" : ""
+            },
+            "Ortho" : ""
+        },
+        "2010" : {
+            "DTM" : {
+                "base" : "https://sitn.ne.ch/geodata/pointclouds/Aeriallidar/Lidar2010/05_Grid/mnt/50cm/sitn_lidar2010_mnt_50cm.cog.tif",
+                "ao" : "",
+                "sm" : ""
+            },
+            "DSM" : {
+                "base" : "",
+                "ao" : "https://sitn.ne.ch/geodata/pointclouds/Aeriallidar/Lidar2010/05_Grid/mns/50cm/sitn_lidar2010_mns_50cm_ao.cog.tif",
+                "sm" : ""
+            },
+            "Ortho" : ""
+        },
+        "2016" : {
+            "DTM" : {
+                "base" : "https://sitn.ne.ch/geodata/pointclouds/Aeriallidar/Lidar2016/05_Grid/mnt/50cm/sitn_lidar2016_mnt_50cm.cog.tif",
+                "ao" : "",
+                "sm" : ""
+            },
+            "DSM" : {
+                "base" : "https://sitn.ne.ch/geodata/pointclouds/Aeriallidar/Lidar2016/05_Grid/mns/50cm/sitn_lidar2016_mns_50cm.tif",
+                "ao" : "",
+                "sm" : ""
+            },
+            "Ortho" : ""
+        },
+        "2019" : {
+            "DTM" : {
+                "base" : "https://sitn.ne.ch/geodata/pointclouds/Aeriallidar/Lidar2019/05_Grid/mnt/25cm/sitn_lidar2019_mnt_25cm.cog.tif",
+                "ao" : "",
+                "sm" : ""
+            },
+            "DSM" : {
+                "base" : "https://sitn.ne.ch/geodata/pointclouds/Aeriallidar/Lidar2019/05_Grid/mns/25cm/sitn_lidar2019_mns_25cm.cog.tif",
+                "ao" : "https://sitn.ne.ch/geodata/pointclouds/Aeriallidar/Lidar2019/05_Grid/mns/25cm/sitn_lidar2019_mns_25cm_ao.cog.tif",
+                "sm" : ""
+            },
+            "Ortho" : ""
+        },
+        "2022" : {
+            "DTM" : {
+                "base" : "https://sitn.ne.ch/geodata/pointclouds/Aeriallidar/Lidar2022/05_Grid/mnt/10cm/sitn_lidar2022_mnt_10cm.cog.tif",
+                "ao" : "https://sitn.ne.ch/geodata/pointclouds/Aeriallidar/Lidar2022/05_Grid/mnt/10cm/sitn_lidar2022_mnt_10cm_ao.cog.tif",
+                "sm" : ""
+            },
+            "DSM" : {
+                "base" : "https://sitn.ne.ch/geodata/pointclouds/Aeriallidar/Lidar2022/05_Grid/mns/10cm/sitn_lidar2022_mns_10cm.cog.tif",
+                "ao" : "https://sitn.ne.ch/geodata/pointclouds/Aeriallidar/Lidar2022/05_Grid/mns/10cm/sitn_lidar2022_mns_10cm_ao.cog.tif",
+                "sm" : "https://sitn.ne.ch/geodata/pointclouds/Aeriallidar/Lidar2022/05_Grid/mns/10cm/sitn_lidar2022_mns_10cm_sm.cog.tif"
+            },
+            "Ortho" : ""
+        },
+        "2023 Chaux-de-Fonds" : {
+            "DTM" : {
+                "base" : "",
+                "ao" : "",
+                "sm" : ""
+            },
+            "DSM" : {
+                "base" : "",
+                "ao" : "",
+                "sm" : ""
+            },
+            "Ortho" : ""
+        }
+    },
+    "modes": {
+        "Réaliste": {
+            "elevation"  : 45,
+            "azimuth"    : 45,
+            "occlusion"  : 0.9,
+            "occlusion_power" : 1,
+            "shadow"           : 0.5, 
+            "shadow_dilation"  : 1,  
+            "zFactor"    : 1, 
+            "brightness" : 0, 
+            "exposure"   : 0,  
+            "contrast"   : 1,  
+            "gamma"      : 1,  
+            "laplacian"  : 0,
+            "laplacian_dilation" : 1,
+            "hillshade_dilation" : 0,
+            "hillshade_color"    : 0,
+            "hillshade_color_power" : 1,
+            "slope" : 0,
+            "ortho" : 0
+        },
+        "Archéologie 1": { 
+            "elevation" : 30,
+            "azimuth"   : 0,
+            "shadow"    : 0, 
+            "zFactor"   : 15,
+            "exposure"  : 0.7,  
+            "contrast"  : 0.5,  
+            "gamma"     : 0.65,  
+            "hillshade_dilation" : 70
+        },
+        "Archéologie 2": {
+            "elevation"  : 40,
+            "occlusion"  :1 ,
+            "occlusion_power" : 3.7,
+            "shadow"           : 0, 
+            "zFactor"    : 10, 
+            "exposure"   : 0.3,  
+            "contrast"   : 1.3,  
+            "hillshade_dilation" : 120,
+            "hillshade_color"    : 0.7,
+            "hillshade_color_power" : 0.7
+        },
+        "Archéologie 3": {
+            "elevation"  : 45,
+            "occlusion"  :1 ,
+            "occlusion_power" : 1.5,
+            "shadow"           : 0, 
+            "zFactor"    : 15, 
+            "exposure"   : 0.5,  
+            "contrast"   : 1.2,  
+            "laplacian"  : 0.05,
+            "laplacian_dilation" : 2,
+            "hillshade_dilation" : 120
+        },
+        "Multidirectional hillshade":{
+            "occlusion" : 0.1,
+            "shadow" : 0,
+            "hillshade_dilation" : 45,
+            "hillshade_color" : 1,
+            "hillshade_color_power" : 2
+        },
+        "Laplacian of Gaussians":{
+            "shadow"    : 0.4, 
+            "contrast"  : 1.7,  
+            "zFactor"   : 3, 
+            "laplacian" : 0.4,
+            "laplacian_dilation" : 2
+        },
+        "Contours":{
+            "contrast"  : 2, 
+            "gamma"     : 0.75,
+            "laplacian" : 1
+        },
+        "Pente":{
+            "contrast"  : 1.2, 
+            "occlusion" : 0,
+            "shadow"    : 0,
+            "slope"     : 0.6
+        }
+    }
+}
